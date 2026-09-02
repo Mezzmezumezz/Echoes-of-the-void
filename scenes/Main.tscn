@@ -1,0 +1,466 @@
+[gd_scene load_steps=9 format=3 uid="uid://echoes_main_v2"]
+
+[ext_resource type="Script" path="res://scripts/PlayerKairo.gd" id="1_2"]
+[ext_resource type="Script" path="res://scripts/WeaponSystem.gd" id="1_3"]
+[ext_resource type="Script" path="res://scripts/BaseBoss.gd" id="1_4"]
+[ext_resource type="Script" path="res://scripts/MinorEnemy.gd" id="1_5"]
+[ext_resource type="Script" path="res://scripts/TutorialManager.gd" id="1_6"]
+
+[sub_resource type="RectangleShape2D" id="2_1"]
+size = Vector2(24, 32)
+
+[sub_resource type="RectangleShape2D" id="2_2"]
+size = Vector2(24, 12)
+
+[sub_resource type="RectangleShape2D" id="2_3"]
+size = Vector2(40, 20)
+
+[sub_resource type="ParticleProcessMaterial" id="2_4"]
+direction = Vector3(-1, 0, 0)
+spread = 20.0
+initial_velocity_min = 80.0
+initial_velocity_max = 120.0
+gravity = Vector3(0, 98, 0)
+scale_min = 1.0
+scale_max = 3.0
+color = Color(0.200000003, 0.899999976, 1, 1)
+
+[node name="Main" type="Node2D"]
+
+[node name="TutorialManager" type="Node" parent="."]
+script = ExtResource("1_6")
+
+[node name="Canvas" type="CanvasLayer" parent="TutorialManager"]
+
+[node name="Panel" type="Panel" parent="TutorialManager/Canvas"]
+offset_left = 600.0
+offset_top = 24.0
+offset_right = 1320.0
+offset_bottom = 134.0
+visible = false
+
+[node name="Title" type="Label" parent="TutorialManager/Canvas/Panel"]
+offset_left = 16.0
+offset_top = 10.0
+offset_right = 704.0
+offset_bottom = 36.0
+text = "TITULO"
+theme_override_font_sizes/font_size = 20
+
+[node name="Desc" type="Label" parent="TutorialManager/Canvas/Panel"]
+offset_left = 16.0
+offset_top = 38.0
+offset_right = 704.0
+offset_bottom = 98.0
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 14
+
+[node name="Hint" type="Label" parent="TutorialManager/Canvas"]
+offset_left = 20.0
+offset_top = 1046.0
+offset_right = 800.0
+offset_bottom = 1072.0
+text = "Hint"
+theme_override_font_sizes/font_size = 14
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Ground" type="StaticBody2D" parent="World"]
+position = Vector2(1600, 900)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Ground"]
+shape = SubResource("2_1")
+debug_color = Color(0.5, 0.5, 0.5, 0.42)
+scale = Vector2(135, 2)
+
+[node name="GroundVisual" type="ColorRect" parent="World/Ground"]
+offset_left = -1600.0
+offset_top = -32.0
+offset_right = 1600.0
+offset_bottom = 32.0
+color = Color(0.14902, 0.14902, 0.180392, 1)
+
+[node name="WallLeft" type="StaticBody2D" parent="World"]
+position = Vector2(-10, 600)
+
+[node name="Collision" type="CollisionShape2D" parent="World/WallLeft"]
+shape = SubResource("2_1")
+scale = Vector2(1, 40)
+
+[node name="Platform_Tutorial1" type="StaticBody2D" parent="World"]
+position = Vector2(500, 820)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_Tutorial1"]
+shape = SubResource("2_2")
+scale = Vector2(6, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_Tutorial1"]
+offset_left = -72.0
+offset_top = -6.0
+offset_right = 72.0
+offset_bottom = 6.0
+color = Color(0.25, 0.25, 0.3, 1)
+
+[node name="Platform_Tutorial2" type="StaticBody2D" parent="World"]
+position = Vector2(850, 760)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_Tutorial2"]
+shape = SubResource("2_2")
+scale = Vector2(7, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_Tutorial2"]
+offset_left = -84.0
+offset_top = -6.0
+offset_right = 84.0
+offset_bottom = 6.0
+color = Color(0.25, 0.25, 0.3, 1)
+
+[node name="Platform_Mid" type="StaticBody2D" parent="World"]
+position = Vector2(1350, 720)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_Mid"]
+shape = SubResource("2_2")
+scale = Vector2(9, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_Mid"]
+offset_left = -108.0
+offset_top = -6.0
+offset_right = 108.0
+offset_bottom = 6.0
+color = Color(0.25, 0.25, 0.3, 1)
+
+[node name="Platform_BossEntry" type="StaticBody2D" parent="World"]
+position = Vector2(1850, 800)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_BossEntry"]
+shape = SubResource("2_2")
+scale = Vector2(8, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_BossEntry"]
+offset_left = -96.0
+offset_top = -6.0
+offset_right = 96.0
+offset_bottom = 6.0
+color = Color(0.25, 0.25, 0.3, 1)
+
+[node name="BossArenaGround" type="ColorRect" parent="World"]
+offset_left = 2200.0
+offset_top = 868.0
+offset_right = 3100.0
+offset_bottom = 900.0
+color = Color(0.2, 0.15, 0.15, 1)
+
+[node name="ArenaWallLeft" type="StaticBody2D" parent="World"]
+position = Vector2(2200, 750)
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWallLeft"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="ArenaWallRight" type="StaticBody2D" parent="World"]
+position = Vector2(3100, 750)
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWallRight"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="Signs" type="Node2D" parent="World"]
+
+[node name="Sign_Move" type="ColorRect" parent="World/Signs"]
+offset_left = 220.0
+offset_top = 820.0
+offset_right = 340.0
+offset_bottom = 868.0
+color = Color(0.2, 0.6, 1, 1)
+
+[node name="Label" type="Label" parent="World/Signs/Sign_Move"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 112.0
+offset_bottom = 40.0
+text = "A/D
+W / SPACE"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 11
+
+[node name="Sign_Dash" type="ColorRect" parent="World/Signs"]
+offset_left = 620.0
+offset_top = 820.0
+offset_right = 740.0
+offset_bottom = 868.0
+color = Color(0, 0.8, 0.8, 1)
+
+[node name="Label" type="Label" parent="World/Signs/Sign_Dash"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 112.0
+offset_bottom = 40.0
+text = "SHIFT
+DASH al BEAT!"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 11
+
+[node name="Sign_Combat" type="ColorRect" parent="World/Signs"]
+offset_left = 1000.0
+offset_top = 820.0
+offset_right = 1120.0
+offset_bottom = 868.0
+color = Color(1, 0.9, 0.2, 1)
+
+[node name="Label" type="Label" parent="World/Signs/Sign_Combat"]
+offset_left = 8.0
+offset_top = 4.0
+offset_right = 112.0
+offset_bottom = 44.0
+text = "J = ATK
+E/K = ESPECIAL"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 10
+
+[node name="Sign_Weapon" type="ColorRect" parent="World/Signs"]
+offset_left = 1680.0
+offset_top = 820.0
+offset_right = 1800.0
+offset_bottom = 868.0
+color = Color(0.7, 0.3, 1, 1)
+
+[node name="Label" type="Label" parent="World/Signs/Sign_Weapon"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 112.0
+offset_bottom = 40.0
+text = "Q = Cambiar
+ARMA"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 11
+
+[node name="Sign_Boss" type="ColorRect" parent="World/Signs"]
+offset_left = 2320.0
+offset_top = 800.0
+offset_right = 2520.0
+offset_bottom = 868.0
+color = Color(1, 0.2, 0.3, 1)
+
+[node name="Label" type="Label" parent="World/Signs/Sign_Boss"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 192.0
+offset_bottom = 60.0
+text = "BOSS: RESONATOR
+¡Fase 2 más rápido!"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 10
+
+[node name="PlayerKairo" type="CharacterBody2D" parent="."]
+position = Vector2(180, 700)
+script = ExtResource("1_2")
+groups = ["player"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlayerKairo"]
+shape = SubResource("2_1")
+
+[node name="Sprite" type="ColorRect" parent="PlayerKairo"]
+offset_left = -12.0
+offset_top = -16.0
+offset_right = 12.0
+offset_bottom = 16.0
+color = Color(0.899999976, 0.899999976, 1, 1)
+
+[node name="AttackArea" type="Area2D" parent="PlayerKairo"]
+position = Vector2(20, -6)
+collision_layer = 0
+collision_mask = 3
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlayerKairo/AttackArea"]
+shape = SubResource("2_3")
+debug_color = Color(0.2, 0.9, 1, 0.42)
+disabled = true
+
+[node name="Camera2D" type="Camera2D" parent="PlayerKairo"]
+current = true
+limit_left = -200
+limit_right = 3400
+limit_smoothed = true
+position_smoothing_enabled = true
+drag_horizontal_enabled = true
+drag_vertical_enabled = true
+
+[node name="HUD" type="CanvasLayer" parent="PlayerKairo"]
+
+[node name="HpLabel" type="Label" parent="PlayerKairo/HUD"]
+offset_left = 20.0
+offset_top = 60.0
+offset_right = 220.0
+offset_bottom = 86.0
+text = "HP: 100 / 100"
+theme_override_font_sizes/font_size = 18
+
+[node name="WeaponLabel" type="Label" parent="PlayerKairo/HUD"]
+offset_left = 20.0
+offset_top = 85.0
+offset_right = 320.0
+offset_bottom = 111.0
+text = "PulseBlade"
+theme_override_font_sizes/font_size = 16
+
+[node name="EnergyBar" type="ProgressBar" parent="PlayerKairo/HUD"]
+offset_left = 20.0
+offset_top = 110.0
+offset_right = 220.0
+offset_bottom = 126.0
+max_value = 100.0
+step = 1.0
+value = 100.0
+show_percentage = false
+
+[node name="EnergyLabel" type="Label" parent="PlayerKairo/HUD"]
+offset_left = 230.0
+offset_top = 110.0
+offset_right = 320.0
+offset_bottom = 126.0
+text = "ENERGIA"
+theme_override_font_sizes/font_size = 10
+
+[node name="ComboLabel" type="Label" parent="PlayerKairo/HUD"]
+offset_left = 20.0
+offset_top = 135.0
+offset_right = 200.0
+offset_bottom = 161.0
+theme_override_font_sizes/font_size = 16
+
+[node name="Controls" type="Label" parent="PlayerKairo/HUD"]
+offset_left = 20.0
+offset_top = 1000.0
+offset_right = 600.0
+offset_bottom = 1060.0
+text = "J:ATK | E/K:ESPECIAL | Q:CAMBIAR | SHIFT:DASH BEAT | W: SALTO"
+theme_override_font_sizes/font_size = 12
+
+[node name="DashParticles" type="GPUParticles2D" parent="PlayerKairo"]
+emitting = false
+amount = 16
+lifetime = 0.3
+process_material = SubResource("2_4")
+
+[node name="WeaponSystem" type="Node" parent="PlayerKairo"]
+script = ExtResource("1_3")
+
+[node name="Enemy_Slime1" type="CharacterBody2D" parent="."]
+position = Vector2(900, 700)
+script = ExtResource("1_5")
+groups = ["enemies", "boss"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy_Slime1"]
+shape = SubResource("2_1")
+debug_color = Color(0.8, 1, 0.5, 0.42)
+scale = Vector2(0.9, 0.7)
+
+[node name="Sprite" type="ColorRect" parent="Enemy_Slime1"]
+offset_left = -12.0
+offset_top = -10.0
+offset_right = 12.0
+offset_bottom = 10.0
+color = Color(0.8, 1, 0.5, 1)
+
+[node name="HpBar" type="ProgressBar" parent="Enemy_Slime1"]
+offset_left = -16.0
+offset_top = -22.0
+offset_right = 16.0
+offset_bottom = -16.0
+max_value = 70.0
+value = 70.0
+show_percentage = false
+
+[node name="Label" type="Label" parent="Enemy_Slime1"]
+offset_left = -24.0
+offset_top = -36.0
+offset_right = 24.0
+offset_bottom = -22.0
+text = "EchoSlime"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 8
+
+[node name="DetectionArea" type="Area2D" parent="Enemy_Slime1"]
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy_Slime1/DetectionArea"]
+shape = SubResource("2_3")
+debug_color = Color(1, 1, 0, 0.1)
+
+[node name="Enemy_Slime2" type="CharacterBody2D" parent="."]
+position = Vector2(1400, 660)
+script = ExtResource("1_5")
+groups = ["enemies", "boss"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy_Slime2"]
+shape = SubResource("2_1")
+debug_color = Color(0.8, 1, 0.5, 0.42)
+scale = Vector2(0.9, 0.7)
+
+[node name="Sprite" type="ColorRect" parent="Enemy_Slime2"]
+offset_left = -12.0
+offset_top = -10.0
+offset_right = 12.0
+offset_bottom = 10.0
+color = Color(0.8, 1, 0.5, 1)
+
+[node name="HpBar" type="ProgressBar" parent="Enemy_Slime2"]
+offset_left = -16.0
+offset_top = -22.0
+offset_right = 16.0
+offset_bottom = -16.0
+max_value = 70.0
+value = 70.0
+show_percentage = false
+
+[node name="Label" type="Label" parent="Enemy_Slime2"]
+offset_left = -24.0
+offset_top = -36.0
+offset_right = 24.0
+offset_bottom = -22.0
+text = "EchoSlime"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 8
+
+[node name="DetectionArea" type="Area2D" parent="Enemy_Slime2"]
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy_Slime2/DetectionArea"]
+shape = SubResource("2_3")
+debug_color = Color(1, 1, 0, 0.1)
+
+[node name="Boss" type="CharacterBody2D" parent="."]
+position = Vector2(2650, 780)
+script = ExtResource("1_4")
+groups = ["boss"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boss"]
+shape = SubResource("2_1")
+debug_color = Color(1, 0.2, 0.4, 0.42)
+scale = Vector2(2, 2.5)
+
+[node name="Sprite" type="ColorRect" parent="Boss"]
+offset_left = -24.0
+offset_top = -40.0
+offset_right = 24.0
+offset_bottom = 40.0
+color = Color(1, 0.25, 0.449999988, 1)
+
+[node name="HpBar" type="ProgressBar" parent="Boss"]
+offset_left = -40.0
+offset_top = -60.0
+offset_right = 40.0
+offset_bottom = -48.0
+max_value = 500.0
+value = 500.0
+show_percentage = false
+
+[node name="Label" type="Label" parent="Boss"]
+offset_left = -50.0
+offset_top = -80.0
+offset_right = 50.0
+offset_bottom = -62.0
+text = "Resonator"
+horizontal_alignment = 1

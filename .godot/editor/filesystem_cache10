@@ -1,0 +1,10 @@
+78098b89c88a74ebe8c20117b8754620
+::res://::1788373011
+icon.svg::CompressedTexture2D::5411740533304975069::1788372668::1788373012::1::::<><><>0<>0<>664d99b62514ac075426a84b2b37619d<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
+::res://scenes/::1788372786
+Main.tscn::PackedScene::-1::1788372786::0::1::::<><><>0<>0<><>::res://scripts/ResonanceManager.gd<>res://scripts/PlayerKairo.gd<>res://scripts/WeaponSystem.gd<>res://scripts/BaseBoss.gd
+::res://scripts/::1788372763
+BaseBoss.gd::GDScript::7060800332026896350::1788372763::0::1::::<>CharacterBody2D<><>0<>0<><>::
+PlayerKairo.gd::GDScript::2188908705063489983::1788372743::0::1::::<>CharacterBody2D<><>0<>0<><>::
+ResonanceManager.gd::GDScript::925024593129490271::1788372680::0::1::::<>Node<><>0<>0<><>::
+WeaponSystem.gd::GDScript::8564985008386979788::1788372685::0::1::::WeaponSystem<>Node<><>0<>0<><>::

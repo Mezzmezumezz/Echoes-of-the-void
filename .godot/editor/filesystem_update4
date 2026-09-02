@@ -1,0 +1,5 @@
+res://scripts/BaseBoss.gd
+res://scripts/ResonanceManager.gd
+res://scripts/PlayerKairo.gd
+res://scripts/WeaponSystem.gd
+res://scripts/TutorialManager.gd
