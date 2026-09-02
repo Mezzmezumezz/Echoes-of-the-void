@@ -178,12 +178,17 @@ func _die():
 		var t = create_tween()
 		t.tween_property(sprite, "color", Color(0.3, 0.3, 0.3, 0.4), 0.3)
 		t.parallel().tween_property(sprite, "scale", Vector2(1.3, 0.2), 0.3)
-	# Dar energía al jugador si mató al ritmo
+	# Dar energía + echoes
 	var player = get_tree().get_first_node_in_group("player")
 	if player and player.has_node("WeaponSystem"):
 		var ws = player.get_node("WeaponSystem")
 		if ws.has_method("recharge"):
 			ws.recharge(20)
+	# Echoes para skill tree
+	if has_node("/root/GameManager"):
+		var gm = get_node("/root/GameManager")
+		gm.add_echoes(randi_range(12, 24))
+		print("[Enemy] +Echoes, total:", gm.echoes)
 	# Desaparecer
 	await get_tree().create_timer(0.6).timeout
 	queue_free()

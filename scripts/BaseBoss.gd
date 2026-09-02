@@ -181,8 +181,11 @@ func _spawn_projectile(count: int):
 	var base_spawn = global_position + Vector2(-30, 8)
 	for i in count:
 		var proj = Area2D.new()
+		proj.add_to_group("enemy_projectile")
 		proj.monitoring = true
 		proj.monitorable = true
+		proj.collision_layer = 4
+		proj.collision_mask = 1
 		var col = ColorRect.new()
 		col.size = Vector2(18, 18)
 		col.color = Color(1, 0.2, 0.4) if not _in_phase2 else Color(1, 0.8, 0.2)
@@ -210,19 +213,46 @@ func _spawn_projectile(count: int):
 				dir = Vector2(-sign(spawn_pos.x - player.global_position.x), -0.05).normalized()
 		else:
 			dir = Vector2.LEFT
+		proj.set_meta("dir", dir)
 
-		# Colisión con jugador
+		# Colisión con jugador - con reflect si tiene skill
 		proj.connect("body_entered", func(b):
 			if b.is_in_group("player") and b.has_method("take_damage"):
-				# Si el jugador está en dash perfecto, no recibe daño (parry)
 				if "is_invulnerable" in b and b.is_invulnerable:
-					print("[Boss] Proyectil parryeado!")
-					proj.queue_free()
-					# Recompensar parry
-					if b.has_method("heal"):
-						b.heal(3)
-				else:
-					b.take_damage(16 if not _in_phase2 else 20)
+					# Reflect si tiene skill
+					var gm = get_node_or_null("/root/GameManager")
+					var can_reflect = gm and gm.has_skill("parry_reflect")
+					if can_reflect:
+						print("[Boss] Proyectil REFLEJADO!")
+						proj.remove_from_group("enemy_projectile")
+						proj.add_to_group("player_projectile")
+						col.color = Color.CYAN
+						proj.set_meta("reflected", true)
+						# Nuevo tween inverso hacia boss
+						var t2 = proj.create_tween()
+						t2.tween_property(proj, "global_position", proj.global_position + Vector2(900, -40) * -dir.x, 0.7)
+						t2.tween_callback(func():
+							# Si toca boss, daño
+							for boss in get_tree().get_nodes_in_group("boss"):
+								if proj.global_position.distance_to(boss.global_position) < 60 and boss.has_method("take_damage"):
+									boss.take_damage(35, "Reflected")
+							proj.queue_free()
+						)
+						if b.has_method("heal"):
+							b.heal(4)
+						return
+					else:
+						print("[Boss] Proyectil parryeado (sin reflect)!")
+						proj.queue_free()
+						if b.has_method("heal"):
+							b.heal(3)
+						return
+				b.take_damage(16 if not _in_phase2 else 20)
+				proj.queue_free()
+			# Si es reflejado y toca boss
+			if b.is_in_group("boss") and proj.has_meta("reflected"):
+				if b.has_method("take_damage"):
+					b.take_damage(38, "Reflected")
 					proj.queue_free()
 		)
 
@@ -280,7 +310,6 @@ func _spawn_pulse():
 	pulse.connect("body_entered", func(b):
 		if b.is_in_group("player") and b.has_method("take_damage"):
 			b.take_damage(14)
-			# Empuje
 			if b is CharacterBody2D:
 				var dir = sign(b.global_position.x - global_position.x)
 				if dir==0: dir=1
@@ -293,6 +322,21 @@ func _spawn_pulse():
 	t.parallel().tween_property(vis, "color", Color(1,0.85,0.2,0), 0.55)
 	t.parallel().tween_property(shape.shape, "radius", 160, 0.55)
 	t.tween_callback(pulse.queue_free)
+	# En fase 2 el pulso spawnea minions
+	if _in_phase2 and randf() < 0.6:
+		_spawn_minions(1)
+
+func _spawn_minions(count: int):
+	for i in count:
+		var slime = CharacterBody2D.new()
+		slime.set_script(load("res://scripts/MinorEnemy.gd"))
+		slime.position = global_position + Vector2(randf_range(-50,50), -20)
+		slime.set("enemy_name", "Spawn")
+		slime.set("max_hp", 45)
+		get_tree().current_scene.add_child(slime)
+		# Delay para que no spawneen dentro del boss
+		slime.global_position = global_position + Vector2(-40 - i*30, 0)
+		print("[Boss] Spawn slime ", i)
 
 func take_damage(amount: int, weapon_name: String = ""):
 	if state == State.DEAD: return
@@ -364,10 +408,14 @@ func _die():
 	state = State.DEAD
 	print("[Boss] %s DERROTADO!" % boss_name)
 	if label: label.text = "DEFEATED"
+	if has_node("/root/GameManager"):
+		get_node("/root/GameManager").add_echoes(180)
 	if sprite:
 		var t = create_tween()
 		t.tween_property(sprite, "color", Color(0.2, 0.2, 0.2, 0.4), 0.5)
 		t.tween_property(sprite, "scale", Vector2(1.4, 0.2), 0.5)
 	await get_tree().create_timer(1.0).timeout
 	print("[Boss] Arma desbloqueada: ", boss_type)
-	# Aquí darías arma nueva al jugador
+	# Desbloquear área siguiente (puerta)
+	var door = get_tree().get_first_node_in_group("boss_door")
+	if door: door.queue_free()

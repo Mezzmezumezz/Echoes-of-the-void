@@ -67,6 +67,9 @@ func _setup_placeholder_ui():
 
 var _tick_normal: AudioStreamWAV
 var _tick_accent: AudioStreamWAV
+var auto_detect_bpm: bool = false
+var current_music: AudioStreamPlayer
+var detected_bpm: float = 0.0
 
 func _setup_placeholder_audio():
 	audio_tick = AudioStreamPlayer.new()
@@ -77,7 +80,12 @@ func _setup_placeholder_audio():
 	_tick_normal = _generate_beep(780.0, 0.07)
 	_tick_accent = _generate_beep(1100.0, 0.11)
 	audio_tick.stream = _tick_normal
-	# Para usar tu música luego: audio_tick.stream = load("res://music/boss1.ogg") y sincroniza bpm
+	# Player para música real
+	current_music = AudioStreamPlayer.new()
+	current_music.name = "MusicPlayer"
+	current_music.bus = "Music"
+	add_child(current_music)
+	# Para usar tu música: load_music("res://music/boss1.ogg")
 
 func _generate_beep(freq: float, duration: float) -> AudioStreamWAV:
 	var sample_rate = 44100
@@ -167,6 +175,41 @@ func evaluate_timing() -> Dictionary:
 
 func get_timing_multiplier() -> float:
 	return evaluate_timing().multiplier
+
+# --- MÚSICA REAL + DETECCIÓN BPM ---
+func load_music(path: String, fallback_bpm: float = 120.0):
+	var stream = load(path)
+	if stream == null:
+		push_warning("[Resonance] No se pudo cargar música: " + path)
+		return
+	current_music.stream = stream
+	current_music.play()
+	# Intentar detectar BPM automáticamente
+	var bpm_found = detect_bpm_from_stream(stream, fallback_bpm)
+	set_bpm(bpm_found)
+	print("[Resonance] Música cargada: ", path, " | BPM detectado: ", bpm_found)
+
+func detect_bpm_from_stream(stream, fallback: float = 120.0) -> float:
+	# 1. Si el archivo tiene BPM en nombre ej: boss_140bpm.ogg -> extraer
+	if stream.resource_path != "":
+		var regex = RegEx.new()
+		regex.compile("(\\d{2,3})\\s*bpm")
+		var m = regex.search(stream.resource_path.to_lower())
+		if m:
+			return float(m.get_string(1))
+	# 2. Si es AudioStreamOggVorbis/MP3 intentar estimación simple por duración y beats asumidos
+	# Placeholder: analizador de picos (cuando tengas AudioEffectSpectrumAnalyzer lo usará)
+	if stream.has_method("get_length"):
+		var length = stream.get_length()
+		# Estimación no fiable, devolver fallback pero loggear
+		print("[Resonance] Detección automática no implementada para ", stream.resource_path, " usando fallback ", fallback)
+	# 3. Si tienes archivo .import con bpm tag, Godot 4.4 lo expone en metadata (futuro)
+	detected_bpm = fallback
+	return fallback
+
+func set_music_bpm_manual(bpm_val: float):
+	set_bpm(bpm_val)
+	print("[Resonance] BPM manual: ", bpm_val)
 
 # Para bosses: interpolar BPM suavemente entre fases
 func tween_bpm(target_bpm: float, duration: float = 2.0):

@@ -1,10 +1,13 @@
-[gd_scene load_steps=9 format=3 uid="uid://echoes_main_v2"]
+﻿[gd_scene load_steps=13 format=3 uid="uid://echoes_main_v3"]
 
 [ext_resource type="Script" path="res://scripts/PlayerKairo.gd" id="1_2"]
 [ext_resource type="Script" path="res://scripts/WeaponSystem.gd" id="1_3"]
 [ext_resource type="Script" path="res://scripts/BaseBoss.gd" id="1_4"]
 [ext_resource type="Script" path="res://scripts/MinorEnemy.gd" id="1_5"]
 [ext_resource type="Script" path="res://scripts/TutorialManager.gd" id="1_6"]
+[ext_resource type="Script" path="res://scripts/WeaponWheel.gd" id="1_7"]
+[ext_resource type="Script" path="res://scripts/SkillTreeManager.gd" id="1_8"]
+[ext_resource type="Script" path="res://scripts/PauseMenu.gd" id="1_9"]
 
 [sub_resource type="RectangleShape2D" id="2_1"]
 size = Vector2(24, 32)
@@ -15,7 +18,10 @@ size = Vector2(24, 12)
 [sub_resource type="RectangleShape2D" id="2_3"]
 size = Vector2(40, 20)
 
-[sub_resource type="ParticleProcessMaterial" id="2_4"]
+[sub_resource type="RectangleShape2D" id="2_4"]
+size = Vector2(180, 20)
+
+[sub_resource type="ParticleProcessMaterial" id="2_5"]
 direction = Vector3(-1, 0, 0)
 spread = 20.0
 initial_velocity_min = 80.0
@@ -63,20 +69,71 @@ offset_bottom = 1072.0
 text = "Hint"
 theme_override_font_sizes/font_size = 14
 
+[node name="WeaponWheel" type="CanvasLayer" parent="."]
+script = ExtResource("1_7")
+
+[node name="SkillTree" type="CanvasLayer" parent="."]
+script = ExtResource("1_8")
+
+[node name="PauseMenu" type="CanvasLayer" parent="."]
+script = ExtResource("1_9")
+
+[node name="Panel" type="Panel" parent="PauseMenu"]
+offset_left = 660.0
+offset_top = 300.0
+offset_right = 1260.0
+offset_bottom = 780.0
+visible = false
+
+[node name="Title" type="Label" parent="PauseMenu/Panel"]
+offset_left = 220.0
+offset_top = 20.0
+offset_right = 380.0
+offset_bottom = 46.0
+text = "PAUSA"
+theme_override_font_sizes/font_size = 22
+
+[node name="Resume" type="Button" parent="PauseMenu/Panel"]
+offset_left = 150.0
+offset_top = 80.0
+offset_right = 450.0
+offset_bottom = 120.0
+text = "Reanudar (ESC)"
+
+[node name="SkillTreeBtn" type="Button" parent="PauseMenu/Panel"]
+offset_left = 150.0
+offset_top = 140.0
+offset_right = 450.0
+offset_bottom = 180.0
+text = "Ãrbol de Habilidades (T)"
+
+[node name="Menu" type="Button" parent="PauseMenu/Panel"]
+offset_left = 150.0
+offset_top = 200.0
+offset_right = 450.0
+offset_bottom = 240.0
+text = "MenÃº Principal"
+
+[node name="Quit" type="Button" parent="PauseMenu/Panel"]
+offset_left = 150.0
+offset_top = 260.0
+offset_right = 450.0
+offset_bottom = 300.0
+text = "Salir"
+
 [node name="World" type="Node2D" parent="."]
 
 [node name="Ground" type="StaticBody2D" parent="World"]
-position = Vector2(1600, 900)
+position = Vector2(4000, 900)
 
 [node name="Collision" type="CollisionShape2D" parent="World/Ground"]
 shape = SubResource("2_1")
-debug_color = Color(0.5, 0.5, 0.5, 0.42)
-scale = Vector2(135, 2)
+scale = Vector2(335, 2)
 
 [node name="GroundVisual" type="ColorRect" parent="World/Ground"]
-offset_left = -1600.0
+offset_left = -4000.0
 offset_top = -32.0
-offset_right = 1600.0
+offset_right = 4000.0
 offset_bottom = 32.0
 color = Color(0.14902, 0.14902, 0.180392, 1)
 
@@ -87,80 +144,333 @@ position = Vector2(-10, 600)
 shape = SubResource("2_1")
 scale = Vector2(1, 40)
 
-[node name="Platform_Tutorial1" type="StaticBody2D" parent="World"]
-position = Vector2(500, 820)
+[node name="WallRight" type="StaticBody2D" parent="World"]
+position = Vector2(8100, 600)
 
-[node name="Collision" type="CollisionShape2D" parent="World/Platform_Tutorial1"]
+[node name="Collision" type="CollisionShape2D" parent="World/WallRight"]
+shape = SubResource("2_1")
+scale = Vector2(1, 40)
+
+[node name="Platform_T1a" type="StaticBody2D" parent="World"]
+position = Vector2(520, 820)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_T1a"]
 shape = SubResource("2_2")
 scale = Vector2(6, 1)
 
-[node name="Visual" type="ColorRect" parent="World/Platform_Tutorial1"]
+[node name="Visual" type="ColorRect" parent="World/Platform_T1a"]
 offset_left = -72.0
 offset_top = -6.0
 offset_right = 72.0
 offset_bottom = 6.0
 color = Color(0.25, 0.25, 0.3, 1)
 
-[node name="Platform_Tutorial2" type="StaticBody2D" parent="World"]
-position = Vector2(850, 760)
+[node name="Platform_T1b" type="StaticBody2D" parent="World"]
+position = Vector2(880, 760)
 
-[node name="Collision" type="CollisionShape2D" parent="World/Platform_Tutorial2"]
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_T1b"]
 shape = SubResource("2_2")
 scale = Vector2(7, 1)
 
-[node name="Visual" type="ColorRect" parent="World/Platform_Tutorial2"]
+[node name="Visual" type="ColorRect" parent="World/Platform_T1b"]
 offset_left = -84.0
 offset_top = -6.0
 offset_right = 84.0
 offset_bottom = 6.0
 color = Color(0.25, 0.25, 0.3, 1)
 
-[node name="Platform_Mid" type="StaticBody2D" parent="World"]
-position = Vector2(1350, 720)
+[node name="Platform_C1" type="StaticBody2D" parent="World"]
+position = Vector2(1380, 720)
 
-[node name="Collision" type="CollisionShape2D" parent="World/Platform_Mid"]
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_C1"]
 shape = SubResource("2_2")
 scale = Vector2(9, 1)
 
-[node name="Visual" type="ColorRect" parent="World/Platform_Mid"]
+[node name="Visual" type="ColorRect" parent="World/Platform_C1"]
 offset_left = -108.0
 offset_top = -6.0
 offset_right = 108.0
 offset_bottom = 6.0
-color = Color(0.25, 0.25, 0.3, 1)
+color = Color(0.22, 0.2, 0.28, 1)
 
-[node name="Platform_BossEntry" type="StaticBody2D" parent="World"]
-position = Vector2(1850, 800)
+[node name="Platform_C2" type="StaticBody2D" parent="World"]
+position = Vector2(1750, 640)
 
-[node name="Collision" type="CollisionShape2D" parent="World/Platform_BossEntry"]
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_C2"]
+shape = SubResource("2_2")
+scale = Vector2(6, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_C2"]
+offset_left = -72.0
+offset_top = -6.0
+offset_right = 72.0
+offset_bottom = 6.0
+color = Color(0.22, 0.2, 0.28, 1)
+
+[node name="Wall_C1" type="StaticBody2D" parent="World"]
+position = Vector2(1600, 700)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Wall_C1"]
+shape = SubResource("2_1")
+scale = Vector2(0.6, 6)
+
+[node name="Visual" type="ColorRect" parent="World/Wall_C1"]
+offset_left = -7.0
+offset_top = -96.0
+offset_right = 7.0
+offset_bottom = 96.0
+color = Color(0.2, 0.2, 0.25, 1)
+
+[node name="Platform_S1" type="StaticBody2D" parent="World"]
+position = Vector2(2400, 780)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_S1"]
+shape = SubResource("2_2")
+scale = Vector2(5, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_S1"]
+offset_left = -60.0
+offset_top = -6.0
+offset_right = 60.0
+offset_bottom = 6.0
+color = Color(0.28, 0.22, 0.22, 1)
+
+[node name="Wall_S1" type="StaticBody2D" parent="World"]
+position = Vector2(2550, 650)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Wall_S1"]
+shape = SubResource("2_1")
+scale = Vector2(0.5, 12)
+
+[node name="Visual" type="ColorRect" parent="World/Wall_S1"]
+offset_left = -6.0
+offset_top = -192.0
+offset_right = 6.0
+offset_bottom = 192.0
+color = Color(0.3, 0.25, 0.2, 1)
+
+[node name="Platform_S2" type="StaticBody2D" parent="World"]
+position = Vector2(2850, 620)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_S2"]
+shape = SubResource("2_2")
+scale = Vector2(5, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_S2"]
+offset_left = -60.0
+offset_top = -6.0
+offset_right = 60.0
+offset_bottom = 6.0
+color = Color(0.28, 0.22, 0.22, 1)
+
+[node name="Wall_S2" type="StaticBody2D" parent="World"]
+position = Vector2(3000, 550)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Wall_S2"]
+shape = SubResource("2_1")
+scale = Vector2(0.5, 10)
+
+[node name="Visual" type="ColorRect" parent="World/Wall_S2"]
+offset_left = -6.0
+offset_top = -160.0
+offset_right = 6.0
+offset_bottom = 160.0
+color = Color(0.3, 0.25, 0.2, 1)
+
+[node name="Platform_S3" type="StaticBody2D" parent="World"]
+position = Vector2(3300, 700)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_S3"]
 shape = SubResource("2_2")
 scale = Vector2(8, 1)
 
-[node name="Visual" type="ColorRect" parent="World/Platform_BossEntry"]
+[node name="Visual" type="ColorRect" parent="World/Platform_S3"]
 offset_left = -96.0
 offset_top = -6.0
 offset_right = 96.0
 offset_bottom = 6.0
-color = Color(0.25, 0.25, 0.3, 1)
+color = Color(0.28, 0.22, 0.22, 1)
 
-[node name="BossArenaGround" type="ColorRect" parent="World"]
+[node name="Platform_V1" type="StaticBody2D" parent="World"]
+position = Vector2(4100, 760)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_V1"]
+shape = SubResource("2_2")
+scale = Vector2(7, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_V1"]
+offset_left = -84.0
+offset_top = -6.0
+offset_right = 84.0
+offset_bottom = 6.0
+color = Color(0.15, 0.15, 0.28, 1)
+
+[node name="Platform_V2" type="StaticBody2D" parent="World"]
+position = Vector2(4500, 680)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_V2"]
+shape = SubResource("2_2")
+scale = Vector2(6, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_V2"]
+offset_left = -72.0
+offset_top = -6.0
+offset_right = 72.0
+offset_bottom = 6.0
+color = Color(0.15, 0.15, 0.28, 1)
+
+[node name="Platform_V3" type="StaticBody2D" parent="World"]
+position = Vector2(4900, 620)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_V3"]
+shape = SubResource("2_2")
+scale = Vector2(9, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_V3"]
+offset_left = -108.0
+offset_top = -6.0
+offset_right = 108.0
+offset_bottom = 6.0
+color = Color(0.15, 0.15, 0.28, 1)
+
+[node name="Platform_F1" type="StaticBody2D" parent="World"]
+position = Vector2(5600, 780)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_F1"]
+shape = SubResource("2_2")
+scale = Vector2(6, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_F1"]
+offset_left = -72.0
+offset_top = -6.0
+offset_right = 72.0
+offset_bottom = 6.0
+color = Color(0.2, 0.2, 0.2, 1)
+
+[node name="Platform_F2" type="StaticBody2D" parent="World"]
+position = Vector2(6000, 700)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_F2"]
+shape = SubResource("2_2")
+scale = Vector2(8, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_F2"]
+offset_left = -96.0
+offset_top = -6.0
+offset_right = 96.0
+offset_bottom = 6.0
+color = Color(0.2, 0.2, 0.2, 1)
+
+[node name="Platform_F3" type="StaticBody2D" parent="World"]
+position = Vector2(6500, 760)
+
+[node name="Collision" type="CollisionShape2D" parent="World/Platform_F3"]
+shape = SubResource("2_2")
+scale = Vector2(7, 1)
+
+[node name="Visual" type="ColorRect" parent="World/Platform_F3"]
+offset_left = -84.0
+offset_top = -6.0
+offset_right = 84.0
+offset_bottom = 6.0
+color = Color(0.2, 0.2, 0.2, 1)
+
+[node name="Arena1Ground" type="ColorRect" parent="World"]
 offset_left = 2200.0
 offset_top = 868.0
-offset_right = 3100.0
+offset_right = 3000.0
 offset_bottom = 900.0
 color = Color(0.2, 0.15, 0.15, 1)
 
-[node name="ArenaWallLeft" type="StaticBody2D" parent="World"]
-position = Vector2(2200, 750)
+[node name="Arena2Ground" type="ColorRect" parent="World"]
+offset_left = 3650.0
+offset_top = 868.0
+offset_right = 4450.0
+offset_bottom = 900.0
+color = Color(0.15, 0.18, 0.22, 1)
 
-[node name="Collision" type="CollisionShape2D" parent="World/ArenaWallLeft"]
+[node name="Arena3Ground" type="ColorRect" parent="World"]
+offset_left = 5050.0
+offset_top = 868.0
+offset_right = 5850.0
+offset_bottom = 900.0
+color = Color(0.22, 0.15, 0.22, 1)
+
+[node name="Arena4Ground" type="ColorRect" parent="World"]
+offset_left = 6250.0
+offset_top = 868.0
+offset_right = 7050.0
+offset_bottom = 900.0
+color = Color(0.12, 0.2, 0.15, 1)
+
+[node name="Arena5Ground" type="ColorRect" parent="World"]
+offset_left = 7250.0
+offset_top = 868.0
+offset_right = 8050.0
+offset_bottom = 900.0
+color = Color(0.18, 0.12, 0.18, 1)
+
+[node name="ArenaWall1L" type="StaticBody2D" parent="World"]
+position = Vector2(2200, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall1L"]
 shape = SubResource("2_1")
 scale = Vector2(1, 8)
 
-[node name="ArenaWallRight" type="StaticBody2D" parent="World"]
-position = Vector2(3100, 750)
+[node name="ArenaWall1R" type="StaticBody2D" parent="World"]
+position = Vector2(3000, 750)
+groups = ["boss_door"]
 
-[node name="Collision" type="CollisionShape2D" parent="World/ArenaWallRight"]
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall1R"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="ArenaWall2L" type="StaticBody2D" parent="World"]
+position = Vector2(3650, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall2L"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="ArenaWall2R" type="StaticBody2D" parent="World"]
+position = Vector2(4450, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall2R"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="ArenaWall3L" type="StaticBody2D" parent="World"]
+position = Vector2(5050, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall3L"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="ArenaWall3R" type="StaticBody2D" parent="World"]
+position = Vector2(5850, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall3R"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="ArenaWall5L" type="StaticBody2D" parent="World"]
+position = Vector2(7250, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall5L"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="ArenaWall5R" type="StaticBody2D" parent="World"]
+position = Vector2(8050, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall5R"]
 shape = SubResource("2_1")
 scale = Vector2(1, 8)
 
@@ -196,60 +506,106 @@ offset_top = 8.0
 offset_right = 112.0
 offset_bottom = 40.0
 text = "SHIFT
-DASH al BEAT!"
+DASH BEAT!"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 11
 
-[node name="Sign_Combat" type="ColorRect" parent="World/Signs"]
-offset_left = 1000.0
-offset_top = 820.0
-offset_right = 1120.0
-offset_bottom = 868.0
-color = Color(1, 0.9, 0.2, 1)
+[node name="Sign_Wall" type="ColorRect" parent="World/Signs"]
+offset_left = 2420.0
+offset_top = 700.0
+offset_right = 2540.0
+offset_bottom = 748.0
+color = Color(0.9, 0.6, 0.2, 1)
 
-[node name="Label" type="Label" parent="World/Signs/Sign_Combat"]
-offset_left = 8.0
-offset_top = 4.0
-offset_right = 112.0
-offset_bottom = 44.0
-text = "J = ATK
-E/K = ESPECIAL"
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 10
-
-[node name="Sign_Weapon" type="ColorRect" parent="World/Signs"]
-offset_left = 1680.0
-offset_top = 820.0
-offset_right = 1800.0
-offset_bottom = 868.0
-color = Color(0.7, 0.3, 1, 1)
-
-[node name="Label" type="Label" parent="World/Signs/Sign_Weapon"]
+[node name="Label" type="Label" parent="World/Signs/Sign_Wall"]
 offset_left = 8.0
 offset_top = 8.0
 offset_right = 112.0
-offset_bottom = 40.0
-text = "Q = Cambiar
-ARMA"
+offset_bottom = 32.0
+text = "T: SKILL
+WALL JUMP"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 9
 
-[node name="Sign_Boss" type="ColorRect" parent="World/Signs"]
+[node name="Sign_Boss1" type="ColorRect" parent="World/Signs"]
 offset_left = 2320.0
 offset_top = 800.0
 offset_right = 2520.0
 offset_bottom = 868.0
 color = Color(1, 0.2, 0.3, 1)
 
-[node name="Label" type="Label" parent="World/Signs/Sign_Boss"]
+[node name="Label" type="Label" parent="World/Signs/Sign_Boss1"]
 offset_left = 8.0
 offset_top = 8.0
 offset_right = 192.0
 offset_bottom = 60.0
-text = "BOSS: RESONATOR
-¡Fase 2 más rápido!"
+text = "BOSS 1: RESONATOR"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 10
+
+[node name="Sign_Boss2" type="ColorRect" parent="World/Signs"]
+offset_left = 3750.0
+offset_top = 800.0
+offset_right = 3950.0
+offset_bottom = 868.0
+color = Color(0.2, 0.4, 1, 1)
+
+[node name="Label" type="Label" parent="World/Signs/Sign_Boss2"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 192.0
+offset_bottom = 60.0
+text = "BOSS 2: BASS TITAN"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 10
+
+[node name="Sign_Boss3" type="ColorRect" parent="World/Signs"]
+offset_left = 5150.0
+offset_top = 800.0
+offset_right = 5350.0
+offset_bottom = 868.0
+color = Color(0.7, 0.2, 1, 1)
+
+[node name="Label" type="Label" parent="World/Signs/Sign_Boss3"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 192.0
+offset_bottom = 60.0
+text = "BOSS 3: CHOIR WARDEN"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 10
+
+[node name="Sign_Boss4" type="ColorRect" parent="World/Signs"]
+offset_left = 6350.0
+offset_top = 800.0
+offset_right = 6550.0
+offset_bottom = 868.0
+color = Color(0.2, 0.8, 0.4, 1)
+
+[node name="Label" type="Label" parent="World/Signs/Sign_Boss4"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 192.0
+offset_bottom = 60.0
+text = "BOSS 4: VOID HARVESTER"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 9
+
+[node name="Sign_Boss5" type="ColorRect" parent="World/Signs"]
+offset_left = 7350.0
+offset_top = 800.0
+offset_right = 7550.0
+offset_bottom = 868.0
+color = Color(0.9, 0.9, 0.2, 1)
+
+[node name="Label" type="Label" parent="World/Signs/Sign_Boss5"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 192.0
+offset_bottom = 60.0
+text = "BOSS FINAL: ECHO PRIME"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 9
 
 [node name="PlayerKairo" type="CharacterBody2D" parent="."]
 position = Vector2(180, 700)
@@ -276,10 +632,18 @@ shape = SubResource("2_3")
 debug_color = Color(0.2, 0.9, 1, 0.42)
 disabled = true
 
+[node name="WallRayLeft" type="RayCast2D" parent="PlayerKairo"]
+target_position = Vector2(-14, 0)
+enabled = true
+
+[node name="WallRayRight" type="RayCast2D" parent="PlayerKairo"]
+target_position = Vector2(14, 0)
+enabled = true
+
 [node name="Camera2D" type="Camera2D" parent="PlayerKairo"]
 current = true
 limit_left = -200
-limit_right = 3400
+limit_right = 8300
 limit_smoothed = true
 position_smoothing_enabled = true
 drag_horizontal_enabled = true
@@ -321,26 +685,34 @@ offset_bottom = 126.0
 text = "ENERGIA"
 theme_override_font_sizes/font_size = 10
 
+[node name="EchoesLabel" type="Label" parent="PlayerKairo/HUD"]
+offset_left = 20.0
+offset_top = 130.0
+offset_right = 220.0
+offset_bottom = 156.0
+text = "Echoes: 0"
+theme_override_font_sizes/font_size = 14
+
 [node name="ComboLabel" type="Label" parent="PlayerKairo/HUD"]
 offset_left = 20.0
-offset_top = 135.0
+offset_top = 155.0
 offset_right = 200.0
-offset_bottom = 161.0
+offset_bottom = 181.0
 theme_override_font_sizes/font_size = 16
 
 [node name="Controls" type="Label" parent="PlayerKairo/HUD"]
 offset_left = 20.0
 offset_top = 1000.0
-offset_right = 600.0
+offset_right = 700.0
 offset_bottom = 1060.0
-text = "J:ATK | E/K:ESPECIAL | Q:CAMBIAR | SHIFT:DASH BEAT | W: SALTO"
+text = "J:ATK | E:ESPECIAL | Q:RUEDA | T:SKILL | SHIFT:DASH BEAT | ESC:PAUSA"
 theme_override_font_sizes/font_size = 12
 
 [node name="DashParticles" type="GPUParticles2D" parent="PlayerKairo"]
 emitting = false
 amount = 16
 lifetime = 0.3
-process_material = SubResource("2_4")
+process_material = SubResource("2_5")
 
 [node name="WeaponSystem" type="Node" parent="PlayerKairo"]
 script = ExtResource("1_3")
@@ -431,24 +803,108 @@ collision_mask = 1
 shape = SubResource("2_3")
 debug_color = Color(1, 1, 0, 0.1)
 
-[node name="Boss" type="CharacterBody2D" parent="."]
+[node name="Enemy_Slime3" type="CharacterBody2D" parent="."]
+position = Vector2(3200, 640)
+script = ExtResource("1_5")
+groups = ["enemies", "boss"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy_Slime3"]
+shape = SubResource("2_1")
+scale = Vector2(0.9, 0.7)
+
+[node name="Sprite" type="ColorRect" parent="Enemy_Slime3"]
+offset_left = -12.0
+offset_top = -10.0
+offset_right = 12.0
+offset_bottom = 10.0
+color = Color(0.8, 0.6, 1, 1)
+
+[node name="HpBar" type="ProgressBar" parent="Enemy_Slime3"]
+offset_left = -16.0
+offset_top = -22.0
+offset_right = 16.0
+offset_bottom = -16.0
+max_value = 70.0
+value = 70.0
+show_percentage = false
+
+[node name="Label" type="Label" parent="Enemy_Slime3"]
+offset_left = -24.0
+offset_top = -36.0
+offset_right = 24.0
+offset_bottom = -22.0
+text = "Void Mite"
+horizontal_alignment = 1
+
+[node name="DetectionArea" type="Area2D" parent="Enemy_Slime3"]
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy_Slime3/DetectionArea"]
+shape = SubResource("2_3")
+
+[node name="Enemy_Slime4" type="CharacterBody2D" parent="."]
+position = Vector2(4300, 700)
+script = ExtResource("1_5")
+groups = ["enemies", "boss"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy_Slime4"]
+shape = SubResource("2_1")
+scale = Vector2(0.9, 0.7)
+
+[node name="Sprite" type="ColorRect" parent="Enemy_Slime4"]
+offset_left = -12.0
+offset_top = -10.0
+offset_right = 12.0
+offset_bottom = 10.0
+color = Color(0.6, 0.8, 1, 1)
+
+[node name="HpBar" type="ProgressBar" parent="Enemy_Slime4"]
+offset_left = -16.0
+offset_top = -22.0
+offset_right = 16.0
+offset_bottom = -16.0
+max_value = 70.0
+value = 70.0
+show_percentage = false
+
+[node name="Label" type="Label" parent="Enemy_Slime4"]
+offset_left = -24.0
+offset_top = -36.0
+offset_right = 24.0
+offset_bottom = -22.0
+text = "Choir Husk"
+horizontal_alignment = 1
+
+[node name="DetectionArea" type="Area2D" parent="Enemy_Slime4"]
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy_Slime4/DetectionArea"]
+shape = SubResource("2_3")
+
+[node name="Boss1" type="CharacterBody2D" parent="."]
 position = Vector2(2650, 780)
 script = ExtResource("1_4")
 groups = ["boss"]
+boss_name = "Resonator"
+boss_type = "Resonator"
+max_hp = 500
+bpm_phase_1 = 95.0
+bpm_phase_2 = 135.0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Boss"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boss1"]
 shape = SubResource("2_1")
-debug_color = Color(1, 0.2, 0.4, 0.42)
 scale = Vector2(2, 2.5)
 
-[node name="Sprite" type="ColorRect" parent="Boss"]
+[node name="Sprite" type="ColorRect" parent="Boss1"]
 offset_left = -24.0
 offset_top = -40.0
 offset_right = 24.0
 offset_bottom = 40.0
-color = Color(1, 0.25, 0.449999988, 1)
+color = Color(1, 0.25, 0.45, 1)
 
-[node name="HpBar" type="ProgressBar" parent="Boss"]
+[node name="HpBar" type="ProgressBar" parent="Boss1"]
 offset_left = -40.0
 offset_top = -60.0
 offset_right = 40.0
@@ -457,10 +913,158 @@ max_value = 500.0
 value = 500.0
 show_percentage = false
 
-[node name="Label" type="Label" parent="Boss"]
+[node name="Label" type="Label" parent="Boss1"]
 offset_left = -50.0
 offset_top = -80.0
 offset_right = 50.0
 offset_bottom = -62.0
 text = "Resonator"
+horizontal_alignment = 1
+
+[node name="Boss2" type="CharacterBody2D" parent="."]
+position = Vector2(4050, 780)
+script = ExtResource("1_4")
+groups = ["boss"]
+boss_name = "Bass Titan"
+boss_type = "BassTitan"
+max_hp = 650
+bpm_phase_1 = 88.0
+bpm_phase_2 = 118.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boss2"]
+shape = SubResource("2_1")
+scale = Vector2(2.4, 2.8)
+
+[node name="Sprite" type="ColorRect" parent="Boss2"]
+offset_left = -28.0
+offset_top = -44.0
+offset_right = 28.0
+offset_bottom = 44.0
+color = Color(0.2, 0.4, 1, 1)
+
+[node name="HpBar" type="ProgressBar" parent="Boss2"]
+offset_left = -48.0
+offset_top = -66.0
+offset_right = 48.0
+offset_bottom = -52.0
+max_value = 650.0
+value = 650.0
+
+[node name="Label" type="Label" parent="Boss2"]
+offset_left = -60.0
+offset_top = -86.0
+offset_right = 60.0
+offset_bottom = -68.0
+text = "Bass Titan"
+horizontal_alignment = 1
+
+[node name="Boss3" type="CharacterBody2D" parent="."]
+position = Vector2(5450, 780)
+script = ExtResource("1_4")
+groups = ["boss"]
+boss_name = "Choir Warden"
+boss_type = "ChoirWarden"
+max_hp = 580
+bpm_phase_1 = 102.0
+bpm_phase_2 = 148.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boss3"]
+shape = SubResource("2_1")
+scale = Vector2(2.2, 2.6)
+
+[node name="Sprite" type="ColorRect" parent="Boss3"]
+offset_left = -26.0
+offset_top = -42.0
+offset_right = 26.0
+offset_bottom = 42.0
+color = Color(0.7, 0.2, 1, 1)
+
+[node name="HpBar" type="ProgressBar" parent="Boss3"]
+offset_left = -44.0
+offset_top = -64.0
+offset_right = 44.0
+offset_bottom = -50.0
+max_value = 580.0
+value = 580.0
+
+[node name="Label" type="Label" parent="Boss3"]
+offset_left = -60.0
+offset_top = -84.0
+offset_right = 60.0
+offset_bottom = -66.0
+text = "Choir Warden"
+horizontal_alignment = 1
+
+[node name="Boss4" type="CharacterBody2D" parent="."]
+position = Vector2(6650, 780)
+script = ExtResource("1_4")
+groups = ["boss"]
+boss_name = "Void Harvester"
+boss_type = "BassTitan"
+max_hp = 720
+bpm_phase_1 = 90.0
+bpm_phase_2 = 130.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boss4"]
+shape = SubResource("2_1")
+scale = Vector2(2.3, 2.7)
+
+[node name="Sprite" type="ColorRect" parent="Boss4"]
+offset_left = -27.0
+offset_top = -43.0
+offset_right = 27.0
+offset_bottom = 43.0
+color = Color(0.2, 0.8, 0.4, 1)
+
+[node name="HpBar" type="ProgressBar" parent="Boss4"]
+offset_left = -46.0
+offset_top = -65.0
+offset_right = 46.0
+offset_bottom = -51.0
+max_value = 720.0
+value = 720.0
+
+[node name="Label" type="Label" parent="Boss4"]
+offset_left = -70.0
+offset_top = -85.0
+offset_right = 70.0
+offset_bottom = -67.0
+text = "Void Harvester"
+horizontal_alignment = 1
+
+[node name="Boss5" type="CharacterBody2D" parent="."]
+position = Vector2(7650, 780)
+script = ExtResource("1_4")
+groups = ["boss"]
+boss_name = "Echo Prime"
+boss_type = "Resonator"
+max_hp = 900
+bpm_phase_1 = 110.0
+bpm_phase_2 = 165.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boss5"]
+shape = SubResource("2_1")
+scale = Vector2(2.6, 3.0)
+
+[node name="Sprite" type="ColorRect" parent="Boss5"]
+offset_left = -31.0
+offset_top = -48.0
+offset_right = 31.0
+offset_bottom = 48.0
+color = Color(1, 0.9, 0.2, 1)
+
+[node name="HpBar" type="ProgressBar" parent="Boss5"]
+offset_left = -52.0
+offset_top = -70.0
+offset_right = 52.0
+offset_bottom = -56.0
+max_value = 900.0
+value = 900.0
+
+[node name="Label" type="Label" parent="Boss5"]
+offset_left = -70.0
+offset_top = -90.0
+offset_right = 70.0
+offset_bottom = -72.0
+text = "Echo Prime"
 horizontal_alignment = 1
