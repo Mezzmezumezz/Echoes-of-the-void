@@ -1,0 +1,12 @@
+﻿# Godot 4+ - archivos generados
+.godot/
+export/
+*.tmp
+*.log
+
+# Import cache
+*.import
+
+# Mono
+.mono/
+data_*/
