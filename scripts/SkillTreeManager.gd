@@ -47,9 +47,10 @@ func _build_ui():
 	_grid.add_theme_constant_override("v_separation", 18)
 	add_child(_grid)
 
-	# Crear botones por skill
+	# Crear botones por skill (excluir boss rewards que se desbloquean automáticamente)
 	for id in _game_manager.skill_data.keys():
 		var data = _game_manager.skill_data[id]
+		if data.get("boss_reward", false): continue  # Estos se desbloquean al derrotar jefes
 		var panel = Panel.new()
 		panel.custom_minimum_size = Vector2(270, 150)
 		_grid.add_child(panel)

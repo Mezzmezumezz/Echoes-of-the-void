@@ -4,7 +4,7 @@
 extends CharacterBody2D
 
 enum State { IDLE, TELEGRAPH, ATTACK, STUNNED, TRANSITION, DEAD }
-enum Pattern { SINGLE, DOUBLE, WAVE, PULSE }
+enum Pattern { SINGLE, DOUBLE, WAVE, PULSE, RICOCHET, BLACKHOLE, TELEPORT, CLONE }
 
 @export var boss_name: String = "Resonator"
 @export var boss_type: String = "Resonator"
@@ -23,6 +23,7 @@ var is_stunned: bool = false
 var _in_phase2: bool = false
 
 var resonance: Node
+var _boss_patterns: Array = []  # Patrones específicos de este jefe
 @onready var sprite: ColorRect = $Sprite
 @onready var hp_bar: ProgressBar = $HpBar
 @onready var label: Label = $Label
@@ -30,6 +31,22 @@ var resonance: Node
 func _ready():
 	hp = max_hp
 	add_to_group("boss")
+	# Definir patrones específicos por tipo de boss
+	match boss_type:
+		"Resonator":
+			_boss_patterns = [Pattern.SINGLE, Pattern.DOUBLE, Pattern.WAVE, Pattern.PULSE]
+		"BassTitan":
+			_boss_patterns = [Pattern.SINGLE, Pattern.DOUBLE, Pattern.WAVE, Pattern.PULSE]
+		"ChoirWarden":
+			_boss_patterns = [Pattern.SINGLE, Pattern.DOUBLE, Pattern.WAVE, Pattern.PULSE, Pattern.RICOCHET]
+		"VoidHarvester":
+			_boss_patterns = [Pattern.SINGLE, Pattern.DOUBLE, Pattern.WAVE, Pattern.PULSE, Pattern.BLACKHOLE]
+		"EchoPrime":
+			_boss_patterns = [Pattern.SINGLE, Pattern.DOUBLE, Pattern.WAVE, Pattern.PULSE, Pattern.RICOCHET, Pattern.BLACKHOLE, Pattern.TELEPORT, Pattern.CLONE]
+		"EchoPrimordial":
+			_boss_patterns = [Pattern.SINGLE, Pattern.DOUBLE, Pattern.WAVE, Pattern.PULSE, Pattern.RICOCHET, Pattern.BLACKHOLE, Pattern.TELEPORT, Pattern.CLONE]
+		_:
+			_boss_patterns = [Pattern.SINGLE, Pattern.DOUBLE, Pattern.WAVE, Pattern.PULSE]
 	if has_node("/root/ResonanceManager"):
 		resonance = get_node("/root/ResonanceManager")
 		if resonance.has_signal("beat_pulse"):
@@ -96,30 +113,32 @@ func _on_beat(beat_count: int):
 		_attack_cooldown -= 0.15
 
 func _choose_pattern():
-	# Elige patrón según fase, distancia y arma del jugador
 	var player = get_tree().get_first_node_in_group("player")
 	var dist = 9999.0
 	if player: dist = global_position.distance_to(player.global_position)
 	var r = randf()
+	var available = _boss_patterns.duplicate()
 
-	if not _in_phase2:
-		# Fase 1: simple, enseña telegrafía
-		if dist < 110:
-			_next_pattern = Pattern.WAVE
-		elif r < 0.7:
-			_next_pattern = Pattern.SINGLE
-		else:
-			_next_pattern = Pattern.DOUBLE
+	# En fase 2, agregar patrones avanzados si no los tiene ya
+	if _in_phase2:
+		if Pattern.RICOCHET in _boss_patterns and Pattern.RICOCHET not in available:
+			available.append(Pattern.RICOCHET)
+		if Pattern.BLACKHOLE in _boss_patterns and Pattern.BLACKHOLE not in available:
+			available.append(Pattern.BLACKHOLE)
+
+	# Preferir patrones específicos a distancia
+	if dist < 110 and Pattern.WAVE in available:
+		_next_pattern = Pattern.WAVE
+	elif dist > 300 and Pattern.RICOCHET in available and r < 0.4:
+		_next_pattern = Pattern.RICOCHET
+	elif dist > 250 and Pattern.BLACKHOLE in available and r < 0.35:
+		_next_pattern = Pattern.BLACKHOLE
+	elif Pattern.TELEPORT in available and r < 0.25:
+		_next_pattern = Pattern.TELEPORT
+	elif Pattern.CLONE in available and r < 0.3:
+		_next_pattern = Pattern.CLONE
 	else:
-		# Fase 2: más agresiva y variada
-		if r < 0.3:
-			_next_pattern = Pattern.SINGLE
-		elif r < 0.55:
-			_next_pattern = Pattern.DOUBLE
-		elif r < 0.8:
-			_next_pattern = Pattern.WAVE
-		else:
-			_next_pattern = Pattern.PULSE
+		_next_pattern = available[randi() % available.size()]
 
 func _execute_pattern(p: Pattern):
 	match p:
@@ -139,6 +158,22 @@ func _execute_pattern(p: Pattern):
 			_telegraph_circle(Color(1,0.8,0.2,0.5))
 			await get_tree().create_timer(0.34).timeout
 			_spawn_pulse()
+		Pattern.RICOCHET:
+			_telegraph_line(Color(0.3, 0.8, 1.0, 0.7), 0.35)
+			await get_tree().create_timer(0.36).timeout
+			_spawn_ricochet()
+		Pattern.BLACKHOLE:
+			_telegraph_circle(Color(0.4, 0.0, 0.8, 0.6))
+			await get_tree().create_timer(0.4).timeout
+			_spawn_blackhole()
+		Pattern.TELEPORT:
+			_telegraph_circle(Color(1, 1, 1, 0.4))
+			await get_tree().create_timer(0.3).timeout
+			_teleport_boss()
+		Pattern.CLONE:
+			_telegraph_circle(Color(0.6, 0.6, 1.0, 0.5))
+			await get_tree().create_timer(0.35).timeout
+			_spawn_clones()
 
 	print("[Boss] %s ejecuta %s | Fase %s" % [boss_name, Pattern.keys()[p], "2" if _in_phase2 else "1"])
 
@@ -217,6 +252,7 @@ func _spawn_projectile(count: int):
 
 		# Colisión con jugador - con reflect si tiene skill
 		proj.connect("body_entered", func(b):
+			if not is_instance_valid(proj): return
 			if b.is_in_group("player") and b.has_method("take_damage"):
 				if "is_invulnerable" in b and b.is_invulnerable:
 					# Reflect si tiene skill
@@ -226,17 +262,18 @@ func _spawn_projectile(count: int):
 						print("[Boss] Proyectil REFLEJADO!")
 						proj.remove_from_group("enemy_projectile")
 						proj.add_to_group("player_projectile")
-						col.color = Color.CYAN
+						if is_instance_valid(col): col.color = Color.CYAN
 						proj.set_meta("reflected", true)
 						# Nuevo tween inverso hacia boss
 						var t2 = proj.create_tween()
 						t2.tween_property(proj, "global_position", proj.global_position + Vector2(900, -40) * -dir.x, 0.7)
 						t2.tween_callback(func():
+							if not is_instance_valid(proj): return
 							# Si toca boss, daño
 							for boss in get_tree().get_nodes_in_group("boss"):
-								if proj.global_position.distance_to(boss.global_position) < 60 and boss.has_method("take_damage"):
+								if is_instance_valid(proj) and proj.global_position.distance_to(boss.global_position) < 60 and boss.has_method("take_damage"):
 									boss.take_damage(35, "Reflected")
-							proj.queue_free()
+							if is_instance_valid(proj): proj.queue_free()
 						)
 						if b.has_method("heal"):
 							b.heal(4)
@@ -338,14 +375,250 @@ func _spawn_minions(count: int):
 		slime.global_position = global_position + Vector2(-40 - i*30, 0)
 		print("[Boss] Spawn slime ", i)
 
+# --- PATRÓN RICOCHET: Proyectil que rebota en paredes ---
+func _spawn_ricochet():
+	var proj = Area2D.new()
+	proj.add_to_group("enemy_projectile")
+	proj.monitoring = true
+	proj.monitorable = true
+	proj.collision_layer = 4
+	proj.collision_mask = 1
+	var col = ColorRect.new()
+	col.size = Vector2(14, 14)
+	col.color = Color(0.3, 0.8, 1.0)
+	proj.add_child(col)
+	var col_shape = CollisionShape2D.new()
+	var rect = RectangleShape2D.new()
+	rect.size = Vector2(14, 14)
+	col_shape.shape = rect
+	proj.add_child(col_shape)
+	get_tree().current_scene.add_child(proj)
+	proj.global_position = global_position + Vector2(-30, 8)
+
+	var player = get_tree().get_first_node_in_group("player")
+	var dir = Vector2.LEFT
+	if player:
+		dir = (player.global_position - global_position).normalized()
+		dir.y = clamp(dir.y, -0.3, 0.3)
+		dir = dir.normalized()
+
+	var bounces_left = 3 if _in_phase2 else 2
+	var speed = 550.0
+	proj.set_meta("dir", dir)
+	proj.set_meta("bounces", bounces_left)
+	proj.set_meta("speed", speed)
+	proj.set_meta("damage", 24 if _in_phase2 else 18)
+	proj.set_meta("color_ref", col)
+
+	# Movimiento con rebotes
+	_move_ricochet(proj)
+
+	# Colisión con jugador
+	proj.connect("body_entered", func(b):
+		if not is_instance_valid(proj): return
+		if b.is_in_group("player") and b.has_method("take_damage"):
+			if "is_invulnerable" in b and b.is_invulnerable:
+				var gm = get_node_or_null("/root/GameManager")
+				if gm and gm.has_skill("parry_reflect"):
+					proj.remove_from_group("enemy_projectile")
+					proj.add_to_group("player_projectile")
+					if is_instance_valid(col): col.color = Color.CYAN
+					return
+				proj.queue_free()
+				return
+			b.take_damage(proj.get_meta("damage", 18))
+			proj.queue_free()
+	)
+
+func _move_ricochet(proj: Area2D):
+	if not is_instance_valid(proj): return
+	var dir = proj.get_meta("dir", Vector2.LEFT)
+	var speed = proj.get_meta("speed", 550.0)
+	var bounces = proj.get_meta("bounces", 2)
+
+	var tween = proj.create_tween()
+	tween.set_trans(Tween.TRANS_LINEAR)
+	var dist_per_bounce = 400.0
+	var time_per_bounce = dist_per_bounce / speed
+
+	for i in range(bounces + 1):
+		var target_pos = proj.global_position + dir * dist_per_bounce
+		tween.tween_property(proj, "global_position", target_pos, time_per_bounce)
+		if i < bounces:
+			# Rebote: invertir componente X o Y según superficie
+			tween.tween_callback(func():
+				if not is_instance_valid(proj): return
+				# Detectar si hay pared horizontal o techo/piso
+				var new_dir = dir
+				# Simular rebote simple: invertir X
+				new_dir.x = -new_dir.x
+				# Pequeña variación vertical
+				new_dir.y += randf_range(-0.15, 0.15)
+				new_dir = new_dir.normalized()
+				proj.set_meta("dir", new_dir)
+				# Cambiar color para indicar rebote
+				var c = proj.get_meta("color_ref")
+				if c and is_instance_valid(c):
+					c.color = c.color.lightened(0.15)
+			)
+
+	tween.tween_callback(func():
+		if is_instance_valid(proj): proj.queue_free()
+	)
+
+# --- PATRÓN BLACKHOLE: Zona de gravedad que atrae al jugador ---
+func _spawn_blackhole():
+	var hole = Area2D.new()
+	hole.monitoring = false
+	var vis = ColorRect.new()
+	vis.size = Vector2(24, 24)
+	vis.position = Vector2(-12, -12)
+	vis.color = Color(0.4, 0.0, 0.8, 0.7)
+	hole.add_child(vis)
+	var shape = CollisionShape2D.new()
+	var circle = CircleShape2D.new()
+	circle.radius = 20
+	shape.shape = circle
+	hole.add_child(shape)
+	get_tree().current_scene.add_child(hole)
+	hole.global_position = global_position + Vector2(randf_range(-200, 200), -60)
+
+	var duration = 3.5 if _in_phase2 else 2.8
+	var pull_strength = 380.0 if _in_phase2 else 280.0
+	var damage_tick = 6
+	var tick_timer = 0.0
+
+	# Animación visual
+	var t = create_tween()
+	t.tween_property(vis, "scale", Vector2(6, 6), 0.3)
+	t.parallel().tween_property(vis, "color", Color(0.6, 0.0, 1.0, 0.5), 0.3)
+	t.tween_property(vis, "scale", Vector2(4, 4), duration - 0.6)
+	t.parallel().tween_property(vis, "color", Color(0.3, 0.0, 0.6, 0.0), duration - 0.3)
+	t.tween_callback(hole.queue_free)
+
+	# Expandir colisión
+	var expand_t = hole.create_tween()
+	expand_t.tween_property(shape.shape, "radius", 140, 0.4)
+	expand_t.tween_property(shape.shape, "radius", 120, duration - 0.7)
+	expand_t.tween_callback(shape.queue_free)
+
+	# Gravedad periódica mientras el agujero existe
+	while is_instance_valid(hole) and duration > 0:
+		var delta = get_process_delta_time()
+		duration -= delta
+		tick_timer -= delta
+		var player = get_tree().get_first_node_in_group("player")
+		if player and is_instance_valid(hole):
+			var dist = player.global_position.distance_to(hole.global_position)
+			if dist < 160 and dist > 10:
+				var dir = (hole.global_position - player.global_position).normalized()
+				var force = pull_strength * (1.0 - dist / 160.0)
+				player.velocity += dir * force * delta
+				if tick_timer <= 0 and player.has_method("take_damage"):
+					if not ("is_invulnerable" in player and player.is_invulnerable):
+						player.take_damage(damage_tick)
+					tick_timer = 0.5
+		await get_tree().create_timer(0.05).timeout
+
+# --- PATRÓN TELEPORT: Boss se teletransporta ---
+func _teleport_boss():
+	# Efecto de desvanecimiento
+	if sprite:
+		var t = create_tween()
+		t.tween_property(sprite, "modulate", Color(1,1,1,0), 0.15)
+
+	await get_tree().create_timer(0.18).timeout
+
+	# Teletransportar a posición aleatoria lejos del jugador
+	var player = get_tree().get_first_node_in_group("player")
+	var new_pos = global_position
+	for attempt in 10:
+		var test_pos = Vector2(
+			randf_range(2300, 7900),
+			780
+		)
+		if player and test_pos.distance_to(player.global_position) > 200:
+			new_pos = test_pos
+			break
+
+	global_position = new_pos
+	velocity = Vector2.ZERO
+
+	# Aparición
+	if sprite:
+		sprite.modulate = Color(1,1,1,0)
+		var t2 = create_tween()
+		t2.tween_property(sprite, "modulate", Color.WHITE, 0.2)
+
+	# Ataque inmediato tras teletransportar
+	await get_tree().create_timer(0.3).timeout
+	if _in_phase2:
+		_spawn_projectile(2)
+	else:
+		_spawn_projectile(1)
+	print("[Boss] %s TELEPORT a %.0f" % [boss_name, new_pos.x])
+
+# --- PATRÓN CLONE: Crea copias falsas del boss ---
+func _spawn_clones():
+	var clone_count = 2 if _in_phase2 else 1
+	for i in clone_count:
+		var clone = Area2D.new()
+		clone.monitoring = false
+		var vis = ColorRect.new()
+		vis.size = Vector2(36, 50)
+		vis.position = Vector2(-18, -25)
+		vis.color = Color(0.5, 0.5, 0.8, 0.6)
+		clone.add_child(vis)
+		clone.global_position = global_position + Vector2(randf_range(-120, 120), 0)
+		get_tree().current_scene.add_child(clone)
+
+		# Los clones disparan proyectiles falsos que no dañan
+		var proj = Area2D.new()
+		proj.add_to_group("enemy_projectile")
+		proj.monitoring = true
+		var pcol = ColorRect.new()
+		pcol.size = Vector2(12, 12)
+		pcol.color = Color(0.4, 0.4, 0.7, 0.7)
+		proj.add_child(pcol)
+		var pshape = CollisionShape2D.new()
+		var prect = RectangleShape2D.new()
+		prect.size = Vector2(12, 12)
+		pshape.shape = prect
+		proj.add_child(pshape)
+		get_tree().current_scene.add_child(proj)
+		proj.global_position = clone.global_position + Vector2(0, 10)
+
+		var player = get_tree().get_first_node_in_group("player")
+		var dir = Vector2.LEFT
+		if player:
+			dir = (player.global_position - clone.global_position).normalized()
+
+		var tween = proj.create_tween()
+		tween.tween_property(proj, "global_position", proj.global_position + dir * 500, 0.8)
+		tween.tween_callback(proj.queue_free)
+
+		# El clone desaparece después de un rato
+		var dt = clone.create_tween()
+		dt.tween_property(vis, "color", Color(0.5, 0.5, 0.8, 0), 0.8)
+		dt.tween_callback(clone.queue_free)
+
+	# Boss real ataca después de los clones
+	await get_tree().create_timer(0.4).timeout
+	_spawn_projectile(1 if not _in_phase2 else 2)
+	print("[Boss] %s CLONE + ataque real" % boss_name)
+
 func take_damage(amount: int, weapon_name: String = ""):
 	if state == State.DEAD: return
 	hp -= amount
 	hp = max(0, hp)
 	if hp_bar: hp_bar.value = hp
-	Engine.time_scale = 0.22
-	await get_tree().create_timer(0.05, true, false, true).timeout
-	Engine.time_scale = 1.0
+	var hsm = get_node_or_null("/root/HitStopManager")
+	if hsm:
+		hsm.hit_stop(0.05, 0.22)
+	else:
+		Engine.time_scale = 0.22
+		await get_tree().create_timer(0.05, true, false, true).timeout
+		Engine.time_scale = 1.0
 	if sprite:
 		var t = create_tween()
 		t.tween_property(sprite, "color", Color.WHITE, 0.05)
@@ -409,7 +682,9 @@ func _die():
 	print("[Boss] %s DERROTADO!" % boss_name)
 	if label: label.text = "DEFEATED"
 	if has_node("/root/GameManager"):
-		get_node("/root/GameManager").add_echoes(180)
+		var gm = get_node("/root/GameManager")
+		gm.add_echoes(180)
+		gm.on_boss_defeated(boss_type)
 	if sprite:
 		var t = create_tween()
 		t.tween_property(sprite, "color", Color(0.2, 0.2, 0.2, 0.4), 0.5)

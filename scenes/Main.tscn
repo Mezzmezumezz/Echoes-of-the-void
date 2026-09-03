@@ -1,4 +1,4 @@
-﻿[gd_scene load_steps=13 format=3 uid="uid://echoes_main_v3"]
+﻿[gd_scene load_steps=15 format=3 uid="uid://echoes_main_v3"]
 
 [ext_resource type="Script" path="res://scripts/PlayerKairo.gd" id="1_2"]
 [ext_resource type="Script" path="res://scripts/WeaponSystem.gd" id="1_3"]
@@ -8,6 +8,8 @@
 [ext_resource type="Script" path="res://scripts/WeaponWheel.gd" id="1_7"]
 [ext_resource type="Script" path="res://scripts/SkillTreeManager.gd" id="1_8"]
 [ext_resource type="Script" path="res://scripts/PauseMenu.gd" id="1_9"]
+[ext_resource type="Script" path="res://scripts/Minimap.gd" id="1_a"]
+[ext_resource type="Script" path="res://scripts/ResonanceShard.gd" id="1_b"]
 
 [sub_resource type="RectangleShape2D" id="2_1"]
 size = Vector2(24, 32)
@@ -78,6 +80,9 @@ script = ExtResource("1_8")
 [node name="PauseMenu" type="CanvasLayer" parent="."]
 script = ExtResource("1_9")
 
+[node name="Minimap" type="CanvasLayer" parent="."]
+script = ExtResource("1_a")
+
 [node name="Panel" type="Panel" parent="PauseMenu"]
 offset_left = 660.0
 offset_top = 300.0
@@ -145,7 +150,7 @@ shape = SubResource("2_1")
 scale = Vector2(1, 40)
 
 [node name="WallRight" type="StaticBody2D" parent="World"]
-position = Vector2(8100, 600)
+position = Vector2(9350, 600)
 
 [node name="Collision" type="CollisionShape2D" parent="World/WallRight"]
 shape = SubResource("2_1")
@@ -458,6 +463,22 @@ groups = ["boss_door"]
 shape = SubResource("2_1")
 scale = Vector2(1, 8)
 
+[node name="ArenaWall4L" type="StaticBody2D" parent="World"]
+position = Vector2(6250, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall4L"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="ArenaWall4R" type="StaticBody2D" parent="World"]
+position = Vector2(7050, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall4R"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
 [node name="ArenaWall5L" type="StaticBody2D" parent="World"]
 position = Vector2(7250, 750)
 groups = ["boss_door"]
@@ -643,7 +664,7 @@ enabled = true
 [node name="Camera2D" type="Camera2D" parent="PlayerKairo"]
 current = true
 limit_left = -200
-limit_right = 8300
+limit_right = 9500
 limit_smoothed = true
 position_smoothing_enabled = true
 drag_horizontal_enabled = true
@@ -1000,7 +1021,7 @@ position = Vector2(6650, 780)
 script = ExtResource("1_4")
 groups = ["boss"]
 boss_name = "Void Harvester"
-boss_type = "BassTitan"
+boss_type = "VoidHarvester"
 max_hp = 720
 bpm_phase_1 = 90.0
 bpm_phase_2 = 130.0
@@ -1067,4 +1088,164 @@ offset_top = -90.0
 offset_right = 70.0
 offset_bottom = -72.0
 text = "Echo Prime"
+horizontal_alignment = 1
+
+[node name="Shards" type="Node2D" parent="."]
+
+[node name="Shard_Tutorial" type="Area2D" parent="Shards"]
+position = Vector2(680, 700)
+script = ExtResource("1_b")
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Shards/Shard_Tutorial"]
+shape = SubResource("2_4")
+
+[node name="Visual" type="ColorRect" parent="Shards/Shard_Tutorial"]
+offset_left = -5.0
+offset_top = -5.0
+offset_right = 5.0
+offset_bottom = 5.0
+color = Color(0.3, 0.9, 1.0, 0.9)
+
+[node name="Shard_Combat" type="Area2D" parent="Shards"]
+position = Vector2(1520, 580)
+script = ExtResource("1_b")
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Shards/Shard_Combat"]
+shape = SubResource("2_4")
+
+[node name="Visual" type="ColorRect" parent="Shards/Shard_Combat"]
+offset_left = -5.0
+offset_top = -5.0
+offset_right = 5.0
+offset_bottom = 5.0
+color = Color(0.3, 0.9, 1.0, 0.9)
+
+[node name="Shard_Wall" type="Area2D" parent="Shards"]
+position = Vector2(1700, 480)
+script = ExtResource("1_b")
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Shards/Shard_Wall"]
+shape = SubResource("2_4")
+
+[node name="Visual" type="ColorRect" parent="Shards/Shard_Wall"]
+offset_left = -5.0
+offset_top = -5.0
+offset_right = 5.0
+offset_bottom = 5.0
+color = Color(0.3, 0.9, 1.0, 0.9)
+
+[node name="Shard_Boss2" type="Area2D" parent="Shards"]
+position = Vector2(4200, 550)
+script = ExtResource("1_b")
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Shards/Shard_Boss2"]
+shape = SubResource("2_4")
+
+[node name="Visual" type="ColorRect" parent="Shards/Shard_Boss2"]
+offset_left = -5.0
+offset_top = -5.0
+offset_right = 5.0
+offset_bottom = 5.0
+color = Color(0.3, 0.9, 1.0, 0.9)
+
+[node name="Shard_Boss5" type="Area2D" parent="Shards"]
+position = Vector2(7800, 520)
+script = ExtResource("1_b")
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Shards/Shard_Boss5"]
+shape = SubResource("2_4")
+
+[node name="Visual" type="ColorRect" parent="Shards/Shard_Boss5"]
+offset_left = -5.0
+offset_top = -5.0
+offset_right = 5.0
+offset_bottom = 5.0
+color = Color(0.3, 0.9, 1.0, 0.9)
+
+[node name="Arena6Ground" type="ColorRect" parent="World"]
+offset_left = 8450.0
+offset_top = 868.0
+offset_right = 9250.0
+offset_bottom = 900.0
+color = Color(0.25, 0.1, 0.3, 1)
+
+[node name="ArenaWall6L" type="StaticBody2D" parent="World"]
+position = Vector2(8450, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall6L"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="ArenaWall6R" type="StaticBody2D" parent="World"]
+position = Vector2(9250, 750)
+groups = ["boss_door"]
+
+[node name="Collision" type="CollisionShape2D" parent="World/ArenaWall6R"]
+shape = SubResource("2_1")
+scale = Vector2(1, 8)
+
+[node name="Sign_Boss6" type="ColorRect" parent="World/Signs"]
+offset_left = 8550.0
+offset_top = 800.0
+offset_right = 8750.0
+offset_bottom = 868.0
+color = Color(0.8, 0.2, 0.8, 1)
+
+[node name="Label" type="Label" parent="World/Signs/Sign_Boss6"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 192.0
+offset_bottom = 60.0
+text = "??? SECRET BOSS ???"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 9
+
+[node name="Boss6" type="CharacterBody2D" parent="."]
+position = Vector2(8850, 780)
+script = ExtResource("1_4")
+groups = ["boss"]
+boss_name = "Echo Primordial"
+boss_type = "EchoPrimordial"
+max_hp = 1200
+bpm_phase_1 = 120.0
+bpm_phase_2 = 175.0
+contact_damage = 22
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Boss6"]
+shape = SubResource("2_1")
+scale = Vector2(2.8, 3.2)
+
+[node name="Sprite" type="ColorRect" parent="Boss6"]
+offset_left = -33.0
+offset_top = -50.0
+offset_right = 33.0
+offset_bottom = 50.0
+color = Color(0.8, 0.2, 0.8, 1)
+
+[node name="HpBar" type="ProgressBar" parent="Boss6"]
+offset_left = -56.0
+offset_top = -72.0
+offset_right = 56.0
+offset_bottom = -58.0
+max_value = 1200.0
+value = 1200.0
+show_percentage = false
+
+[node name="Label" type="Label" parent="Boss6"]
+offset_left = -80.0
+offset_top = -92.0
+offset_right = 80.0
+offset_bottom = -74.0
+text = "???"
 horizontal_alignment = 1

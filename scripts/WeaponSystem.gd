@@ -55,9 +55,9 @@ var weapon_stats: Dictionary = {
 
 # Tabla de efectividad: arma -> boss_type -> multiplicador
 var effectiveness: Dictionary = {
-	"PulseBlade": {"Resonator": 1.6, "BassTitan": 0.7, "ChoirWarden": 1.0, "Slime": 1.2},
-	"VoidWave":   {"Resonator": 0.8, "BassTitan": 1.6, "ChoirWarden": 1.0, "Slime": 1.0},
-	"EchoShot":   {"Resonator": 1.0, "BassTitan": 0.9, "ChoirWarden": 1.6, "Slime": 1.3}
+	"PulseBlade": {"Resonator": 1.6, "BassTitan": 0.7, "ChoirWarden": 1.0, "VoidHarvester": 0.9, "EchoPrime": 1.2, "EchoPrimordial": 1.4, "Slime": 1.2},
+	"VoidWave":   {"Resonator": 0.8, "BassTitan": 1.6, "ChoirWarden": 1.0, "VoidHarvester": 1.5, "EchoPrime": 1.1, "EchoPrimordial": 1.3, "Slime": 1.0},
+	"EchoShot":   {"Resonator": 1.0, "BassTitan": 0.9, "ChoirWarden": 1.6, "VoidHarvester": 1.2, "EchoPrime": 1.4, "EchoPrimordial": 1.1, "Slime": 1.3}
 }
 
 func _ready():
@@ -93,6 +93,9 @@ func try_attack(timing: Dictionary, target_boss_type: String = "Resonator", comb
 func try_special(timing: Dictionary) -> Dictionary:
 	var stats = get_stats()
 	var cost = stats["special_cost"]
+	var gm = get_node_or_null("/root/GameManager")
+	if gm and gm.has_skill("energy_efficiency"):
+		cost = cost * 0.7
 	if energy < cost:
 		print("[Weapon] Energía insuficiente para especial (%s necesita %.0f)" % [current_weapon, cost])
 		return {"ok": false}

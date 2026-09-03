@@ -123,9 +123,13 @@ func take_damage(amount: int, weapon_name: String = ""):
 
 	# Feedback: flash + hitstop corto + shake si eres Kairo
 	_flash(Color.WHITE)
-	Engine.time_scale = 0.18
-	await get_tree().create_timer(0.04, true, false, true).timeout
-	Engine.time_scale = 1.0
+	var hsm = get_node_or_null("/root/HitStopManager")
+	if hsm:
+		hsm.hit_stop(0.04, 0.18)
+	else:
+		Engine.time_scale = 0.18
+		await get_tree().create_timer(0.04, true, false, true).timeout
+		Engine.time_scale = 1.0
 
 	# Stun si daño alto (enseña que PERFECT stunea)
 	if amount >= 22:

@@ -264,6 +264,15 @@ func _do_double_jump():
 func _start_dash(input_dir: float):
 	if resonance == null: return
 	var timing = resonance.evaluate_timing()
+	# Teleport: si tiene la habilidad y está en el aire, teletransporte corto
+	if has_skill("boss_teleport") and not is_on_floor():
+		var tele_dir = input_dir if input_dir != 0 else _facing
+		var tele_dist = 140.0
+		global_position += Vector2(tele_dir * tele_dist, -30)
+		_spawn_dash_effect(Color(0.8, 0.4, 1.0))
+		_screen_shake(6.0 * shake_intense_mult)
+		_is_dashing = false
+		return
 	_is_dashing = true
 	_dash_timer = dash_duration
 	_dash_cooldown_timer = dash_cooldown
@@ -379,9 +388,16 @@ func _try_attack():
 func _try_special():
 	if resonance == null or weapon_system == null: return
 	var timing = resonance.evaluate_timing()
-	# Eficiencia skill -30% coste gestionado en WeaponSystem si tienes el skill
-	if has_skill("energy_efficiency"):
-		pass
+	# Habilidades de boss como especial alternativo (si no tienes energía para especial normal)
+	if has_skill("boss_ricochet") and not weapon_system.can_use_special():
+		_spawn_player_ricochet(timing)
+		return
+	if has_skill("boss_clone") and not weapon_system.can_use_special():
+		_spawn_player_clone(timing)
+		return
+	if has_skill("boss_blackhole") and not weapon_system.can_use_special():
+		_spawn_player_blackhole(timing)
+		return
 	var res = weapon_system.try_special(timing)
 	if not res.ok:
 		_screen_shake(2.0 * shake_intense_mult)
@@ -608,7 +624,6 @@ func _die():
 
 func _screen_shake(intensity: float):
 	if camera == null: return
-	intensity *= shake_intense_mult
 	var tween = create_tween()
 	tween.tween_property(camera, "offset", Vector2(randf_range(-intensity, intensity), randf_range(-intensity*0.7, intensity*0.7)), 0.045)
 	tween.tween_property(camera, "offset", Vector2(randf_range(-intensity*0.6, intensity*0.6), randf_range(-intensity*0.6, intensity*0.6)), 0.07)
@@ -616,9 +631,13 @@ func _screen_shake(intensity: float):
 
 func _hit_stop(duration: float):
 	duration *= 1.25
-	Engine.time_scale = 0.08
-	await get_tree().create_timer(duration, true, false, true).timeout
-	Engine.time_scale = 1.0
+	var hsm = get_node_or_null("/root/HitStopManager")
+	if hsm:
+		hsm.hit_stop(duration, 0.08)
+	else:
+		Engine.time_scale = 0.08
+		await get_tree().create_timer(duration, true, false, true).timeout
+		Engine.time_scale = 1.0
 
 func _spawn_dash_effect(col: Color):
 	if sprite:
@@ -688,3 +707,88 @@ func _on_weapon_changed(w: String, stats: Dictionary):
 
 func _on_echoes_changed(v: int):
 	if echoes_label: echoes_label.text = "Echoes: %d" % v
+
+# --- HABILIDADES DE JEFES DESBLOQUEADAS ---
+func _spawn_player_ricochet(timing: Dictionary):
+	var dmg = 22
+	var proj = Area2D.new()
+	proj.add_to_group("player_projectile")
+	var col = ColorRect.new()
+	col.size = Vector2(12, 12)
+	col.color = Color(0.3, 0.8, 1.0)
+	proj.add_child(col)
+	var shape = CollisionShape2D.new()
+	var rect = RectangleShape2D.new()
+	rect.size = Vector2(12, 12)
+	shape.shape = rect
+	proj.add_child(shape)
+	get_tree().current_scene.add_child(proj)
+	proj.global_position = global_position + Vector2(20 * _facing, -6)
+	proj.monitoring = true
+	var dir = Vector2(_facing, 0)
+	var tween = proj.create_tween()
+	for i in 3:
+		var target = proj.global_position + dir * 350
+		tween.tween_property(proj, "global_position", target, 0.25)
+		tween.tween_callback(func(): dir.x = -dir.x; dir.y = randf_range(-0.3, 0.3))
+	tween.tween_callback(proj.queue_free)
+	proj.connect("body_entered", func(b):
+		if b.is_in_group("enemies") or b.is_in_group("boss"):
+			if b.has_method("take_damage"):
+				b.take_damage(dmg, "BossRicochet")
+	)
+	_screen_shake(8.0 * shake_intense_mult)
+	_hit_stop(0.08)
+
+func _spawn_player_blackhole(timing: Dictionary):
+	var hole = Area2D.new()
+	hole.monitoring = false
+	var vis = ColorRect.new()
+	vis.size = Vector2(20, 20)
+	vis.position = Vector2(-10, -10)
+	vis.color = Color(0.5, 0.0, 0.9, 0.6)
+	hole.add_child(vis)
+	var shape = CollisionShape2D.new()
+	var circle = CircleShape2D.new()
+	circle.radius = 15
+	shape.shape = circle
+	hole.add_child(shape)
+	get_tree().current_scene.add_child(hole)
+	hole.global_position = global_position + Vector2(120 * _facing, -20)
+	var t = create_tween()
+	t.tween_property(vis, "scale", Vector2(5, 5), 0.3)
+	t.parallel().tween_property(shape.shape, "radius", 100, 0.3)
+	# Pull enemies for 2 seconds
+	var duration = 2.0
+	while duration > 0 and is_instance_valid(hole):
+		for e in get_tree().get_nodes_in_group("enemies") + get_tree().get_nodes_in_group("boss"):
+			if is_instance_valid(e) and e.global_position.distance_to(hole.global_position) < 120:
+				var dir = (hole.global_position - e.global_position).normalized()
+				e.velocity += dir * 250 * get_process_delta_time()
+		duration -= 0.05
+		await get_tree().create_timer(0.05).timeout
+	if is_instance_valid(hole): hole.queue_free()
+	_screen_shake(10.0 * shake_intense_mult)
+
+func _spawn_player_clone(timing: Dictionary):
+	var clone = ColorRect.new()
+	clone.size = Vector2(20, 30)
+	clone.color = Color(0.5, 0.5, 1.0, 0.6)
+	clone.position = global_position + Vector2(-10, -15)
+	get_tree().current_scene.add_child(clone)
+	# El clon ataca a enemigos cercanos
+	var duration = 1.8
+	while duration > 0 and is_instance_valid(clone):
+		for e in get_tree().get_nodes_in_group("enemies") + get_tree().get_nodes_in_group("boss"):
+			if is_instance_valid(e) and clone.global_position.distance_to(e.global_position) < 100:
+				if e.has_method("take_damage"):
+					e.take_damage(18, "BossClone")
+		duration -= 0.3
+		# Visual pulse
+		if is_instance_valid(clone):
+			clone.modulate = Color(1, 0.5, 0.5)
+			await get_tree().create_timer(0.08).timeout
+			if is_instance_valid(clone): clone.modulate = Color(0.5, 0.5, 1.0, 0.6)
+		await get_tree().create_timer(0.22).timeout
+	if is_instance_valid(clone): clone.queue_free()
+	_screen_shake(6.0 * shake_intense_mult)

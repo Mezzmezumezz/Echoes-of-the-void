@@ -8,8 +8,9 @@ signal shade_spawned(pos: Vector2)
 
 var echoes: int = 0 : set = set_echoes
 var max_hp_bonus: int = 0
-var damage_bonus: float = 0.0
 var unlocked_skills: Dictionary = {}
+var defeated_bosses: Dictionary = {}  # boss_type -> true si derrotado
+var resonance_shards: int = 0  # Coleccionables
 
 # Sombra
 var shade_exists: bool = false
@@ -26,7 +27,12 @@ var skill_data: Dictionary = {
 	"double_jump": {"name": "Impulso de Vacío", "cost": 300, "desc": "Doble salto", "requires": ["wall_jump"]},
 	"combo_master": {"name": "Maestro de Combo", "cost": 220, "desc": "Combo GOOD también da x1.3", "requires": []},
 	"parry_reflect": {"name": "Reverberación", "cost": 200, "desc": "Parry refleja proyectiles", "requires": []},
-	"energy_efficiency": {"name": "Flujo Armónico", "cost": 160, "desc": "-30% coste especiales", "requires": []}
+	"energy_efficiency": {"name": "Flujo Armónico", "cost": 160, "desc": "-30% coste especiales", "requires": []},
+	# Habilidades de jefes (se desbloquean al derrotar jefes)
+	"boss_ricochet": {"name": "Eco Rebote", "cost": 0, "desc": "Proyectil que rebota en paredes (Especial)", "requires": [], "boss_reward": true},
+	"boss_blackhole": {"name": "Agujero Negro", "cost": 0, "desc": "Zona de gravedad que atrae enemigos (Especial)", "requires": [], "boss_reward": true},
+	"boss_teleport": {"name": "Traslación", "cost": 0, "desc": "Teletransporte corto (Shift+Dash en aire)", "requires": [], "boss_reward": true},
+	"boss_clone": {"name": "Eco Espejo", "cost": 0, "desc": "Crea un clon que ataca (Especial)", "requires": [], "boss_reward": true}
 }
 
 func _ready():
@@ -64,6 +70,22 @@ func on_player_death(pos: Vector2):
 	emit_signal("shade_spawned", pos)
 	save_game()
 	print("[GameManager] Sombra creada en ", pos, " con ", shade_echoes, " Echoes")
+
+func on_boss_defeated(boss_type: String):
+	if defeated_bosses.has(boss_type): return
+	defeated_bosses[boss_type] = true
+	# Desbloquear habilidad de boss
+	var reward_skill = ""
+	match boss_type:
+		"BassTitan": reward_skill = "boss_ricochet"
+		"VoidHarvester": reward_skill = "boss_blackhole"
+		"EchoPrime": reward_skill = "boss_teleport"
+		"EchoPrimordial": reward_skill = "boss_clone"
+		"ChoirWarden": reward_skill = "boss_ricochet"  # Fallback
+	if reward_skill != "" and not has_skill(reward_skill):
+		unlocked_skills[reward_skill] = true
+		print("[GameManager] Habilidad de boss desbloqueada: ", reward_skill)
+	save_game()
 
 func try_recover_shade() -> bool:
 	if not shade_exists:
@@ -105,7 +127,6 @@ func unlock_skill(id: String) -> bool:
 	match id:
 		"hp_1": max_hp_bonus += 20
 		"hp_2": max_hp_bonus += 30
-		"damage_bonus": damage_bonus += 0.15
 	save_game()
 	print("[Skill] Desbloqueado ", id)
 	return true
@@ -119,6 +140,8 @@ func save_game():
 	cfg.set_value("player", "shade_echoes", shade_echoes)
 	cfg.set_value("player", "skills", unlocked_skills)
 	cfg.set_value("player", "max_hp_bonus", max_hp_bonus)
+	cfg.set_value("player", "defeated_bosses", defeated_bosses)
+	cfg.set_value("player", "resonance_shards", resonance_shards)
 	cfg.save("user://echoes_save.cfg")
 
 func load_game():
@@ -131,3 +154,5 @@ func load_game():
 	shade_echoes = cfg.get_value("player", "shade_echoes", 0)
 	unlocked_skills = cfg.get_value("player", "skills", {})
 	max_hp_bonus = cfg.get_value("player", "max_hp_bonus", 0)
+	defeated_bosses = cfg.get_value("player", "defeated_bosses", {})
+	resonance_shards = cfg.get_value("player", "resonance_shards", 0)

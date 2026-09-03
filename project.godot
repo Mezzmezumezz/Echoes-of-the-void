@@ -23,6 +23,7 @@ name="Echoes of the Void"
 
 ResonanceManager="*res://scripts/ResonanceManager.gd"
 GameManager="*res://scripts/GameManager.gd"
+HitStopManager="*res://scripts/HitStopManager.gd"
 
 [display]
 
