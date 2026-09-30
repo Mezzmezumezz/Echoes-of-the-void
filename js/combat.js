@@ -40,7 +40,7 @@ function killBoss(b){
   shockRing(b.x,b.y-40,b.color,260);shockRing(b.x,b.y-40,'#fff',170);
   // Polvo en puertas al abrir
   const a=ARENAS[b.idx];
-  if(a){for(const dx of [a[0],a[1]]){for(let i=0;i<10;i++)parts.push({x:dx,y:700+Math.random()*150,vx:(Math.random()-0.5)*240,vy:-Math.random()*200,t:0.5,c:'#3f6'});}}
+  if(a)for(const dx of [a[0],a[1]])burst(dx,775,'#3f6',10,240);
   floaters.push({x:b.x,y:b.y-110,txt:'¡BOSS CAÍDO! +180 ◈',t:2,c:'#ffd933'});
   // Pequeña cura al ganar para poder continuar la run
   if(player)player.hp=Math.min(maxHP(),player.hp+20);
@@ -110,7 +110,6 @@ function tryAttackParry(ev,range){
     shockRing(player.x,player.y-16,'#33e6ff',radius+30);
     floaters.push({x:player.x,y:player.y-64,txt:'PARRY x'+n+' +EN',t:0.8,c:'#33e6ff'});
     beep(1200,0.08,0.16);
-    if(S.showDmg===false){/* respeta toggle de números: el anillo ya avisa */}
   }
   return n;
 }
@@ -180,7 +179,7 @@ function hitNote(key){
   $('timelabel').style.color=ev.r==='PERFECT'?'#ffd933':ev.r==='GOOD'?'#3f6':'#f66';
   const base=ev.r==='PERFECT'?1200:ev.r==='GOOD'?900:440;
   beep(base+Math.min(noteCombo,12)*40,0.1,0.18);
-  for(let i=0;i<10;i++)parts.push({x:best.x,y:best.y,vx:(Math.random()-0.5)*320,vy:-Math.random()*260,t:0.45,c:NOTE_COLORS[key]});
+  burst(best.x,best.y,NOTE_COLORS[key],10,320);
 }
 // Barrage rítmico por boss: cada tipo favorece sus modos (personalidad).
 // Resonator=RING/FAN simple · Bass=RAIN pesada · Choir=SPIRAL/FAN · Void=FAN/RAIN · Prime=SPIRAL rápido · Primordial=todo denso.
@@ -255,7 +254,7 @@ function fireKickBarrage(b){
 }
 function choosePattern(b,dx,adx){
   const r=Math.random();
-  // Personalidad por boss + gates de skills como mejora (no como bloqueo total del early)
+  // Personalidad por boss
   if(adx<110){
     if(b.type==='BassTitan')b.pat=r<0.6?'PULSE':'WAVE';
     else b.pat='WAVE';
@@ -273,14 +272,14 @@ function choosePattern(b,dx,adx){
       else if(r<0.55)b.pat='DOUBLE';else if(r<0.7)b.pat='WAVE';else if(r<0.8)b.pat='TELEPORT';else b.pat='SINGLE';
       break;
     case 'VoidHarvester': // Vacío: blackhole + fans
-      if(adx>220&&r<0.4)b.pat=(S.skills.boss_blackhole||r<0.2)?'BLACKHOLE':'WAVE';
+      if(adx>220&&r<0.4)b.pat='BLACKHOLE';
       else if(r<0.55)b.pat='DOUBLE';else if(r<0.7)b.pat='PULSE';else b.pat='SINGLE';
       break;
     case 'EchoPrime': // Rápido: teleports y dobles
-      if(r<0.3)b.pat='TELEPORT';else if(r<0.5)b.pat='DOUBLE';else if(r<0.62&&S.skills.boss_ricochet)b.pat='RICOCHET';else if(r<0.75)b.pat='WAVE';else b.pat='SINGLE';
+      if(r<0.3)b.pat='TELEPORT';else if(r<0.5)b.pat='DOUBLE';else if(r<0.62)b.pat='RICOCHET';else if(r<0.75)b.pat='WAVE';else b.pat='SINGLE';
       break;
     default: // Primordial: todo + clones
-      if(r<0.22)b.pat='TELEPORT';else if(r<0.34&&(S.skills.boss_clone||true))b.pat='CLONE';
+      if(r<0.22)b.pat='TELEPORT';else if(r<0.34)b.pat='CLONE';
       else if(r<0.48)b.pat='RICOCHET';else if(r<0.6)b.pat='BLACKHOLE';else if(r<0.75)b.pat='DOUBLE';else b.pat='WAVE';
       break;
   }

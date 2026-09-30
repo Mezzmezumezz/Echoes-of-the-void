@@ -33,7 +33,6 @@ const PLATS=[[520,820,144,12],[880,760,168,12],[1380,720,216,12],[1750,640,144,1
 const SHARD_DEFS=[[680,700],[1520,580],[1700,480],[4200,550],[7800,520]];
 const LOCK_DEFS=[{id:'lock_tutorial',x:1100,notes:4,reward:30},{id:'lock_mid',x:3500,notes:6,reward:50},{id:'lock_final',x:7300,notes:6,reward:80}];
 const SLIME_DEFS=[[900,'slime'],[1400,'slime'],[3200,'mite'],[4300,'husk']];
-const TUTS=[[120,400,'A/D moverse · Espacio saltar (coyote 0.15s)'],[500,800,'Shift = dash (solo invulnerable AL BOMBO) · J al BOMBO = PARRY destruye balas'],[800,1050,'ATACA con J en el BOMBO (rojo): PERFECT x1.5 / GOOD x1.2 / resto x0.6 · -N = tu daño'],[1050,1350,'J = combo 3 hits (0.95s) · J cerca cofre/sombra = interactuar · H = oculta números'],[1350,1650,'Slimes saltan solo en bombos · Tus disparos también rompen balas'],[1650,1850,'Q tap=ciclo arma · Q hold=rueda · E=especial (al bombo)'],[1850,2250,'Pulse→Resonator · Void→Bass · Echo→Choir · Cada boss sube su BPM y balas'],[2250,9999,'BOSS: se SELLA (sin salida). Dormido=zZ. Notas ♪ 1-4 en racha xN = +daño']];
 
 // Dificultad: ventanas de ritmo + daño recibido + HP + echoes
 // Balance v2: ventanas algo más generosas (50ms PERFECT era muy exigente con lag web + 60fps).

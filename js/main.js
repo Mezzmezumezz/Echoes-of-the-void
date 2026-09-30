@@ -9,7 +9,7 @@ function loop(t){
 }
 function startGame(skillOnly){
   try{ac();}catch(e){}
-  $('menu').classList.add('hidden');$('pause').classList.add('hidden');state='play';resetWorld();Rhythm.rebase();
+  showOverlay('menu',false);showOverlay('pause',false);state='play';resetWorld();Rhythm.rebase();
   if(skillOnly){openSkill();return;}
   if(!S.howDone)openHow();
 }
@@ -18,15 +18,14 @@ function bindUI(){
   $('btnResume').onclick=resumeGame;
   $('btnSkillMenu').onclick=()=>{startGame(true);};
   $('btnSkillPause').onclick=()=>{openSkill();};
-  $('btnMenu').onclick=()=>{save();state='menu';$('pause').classList.add('hidden');$('skill').classList.add('hidden');$('how').classList.add('hidden');skillOpen=false;tutHowOpen=false;$('menu').classList.remove('hidden');};
+  $('btnMenu').onclick=()=>{save();state='menu';showOverlay('pause',false);showOverlay('skill',false);showOverlay('how',false);skillOpen=false;tutHowOpen=false;showOverlay('menu',true);};
   $('btnCloseSkill').onclick=closeSkill;
   $('btnHow').onclick=openHow;
   $('btnCloseHow').onclick=closeHow;
   $('btnWipe').onclick=()=>{localStorage.removeItem(SAVE_KEY);location.reload();};
-  document.querySelectorAll('.wsect').forEach(el=>{el.onclick=()=>{wi=Number(el.dataset.w);markWheel();closeWheel();};});
-  document.querySelectorAll('.dsect').forEach(el=>{el.onclick=()=>setDifficulty(el.dataset.d);});
+  document.querySelectorAll('.dsect').forEach(el=>{el.onclick=()=>setDifficulty(el.dataset.d);el.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();setDifficulty(el.dataset.d);}};});
   document.querySelectorAll('.pkey').forEach(el=>{el.onclick=()=>Piano.press(Number(el.dataset.k));});
   document.querySelectorAll('.lane').forEach(el=>{el.onclick=()=>{const k=Number(el.dataset.k);hitNote(k);flashLane(k);};});
 }
-bindUI();markDiff();markWheel();resetWorld();Rhythm.rebase();
+bindUI();markDiff();syncWeapon();resetWorld();Rhythm.rebase();
 requestAnimationFrame(loop);

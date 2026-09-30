@@ -18,7 +18,6 @@
     <div id="rhythm"><div id="pulse"></div><div id="bpmlabel">120 BPM</div><div id="timelabel"></div></div>
     <canvas id="minimap" width="240" height="28"></canvas>
     <div id="hint"></div>
-    <div id="tutorial"></div>
     <div id="lanes">
       <div class="lane" data-k="0">1</div>
       <div class="lane" data-k="1">2</div>
@@ -27,36 +26,44 @@
     </div>
   </div>
 
-  <div id="menu" class="overlay">
+  <div id="menu" class="overlay" role="dialog" aria-modal="true" aria-label="Menú principal">
+    <div class="menu-panel">
     <h1>ECHOES OF THE VOID</h1>
     <p class="sub">Rhythm-action Metroidvania — port web (Canvas + WebAudio)</p>
-    <button id="btnPlay">▶ Jugar (Enter)</button>
-    <div id="diffsel">
-      <div class="dsect" data-d="easy">Fácil</div>
-      <div class="dsect" data-d="normal">Normal</div>
-      <div class="dsect" data-d="hard">Difícil</div>
+    <button id="btnPlay" class="btn-primary">▶ Jugar (Enter)</button>
+    <p class="menu-label" id="difflabel2">Dificultad</p>
+    <div id="diffsel" role="group" aria-labelledby="difflabel2">
+      <div class="dsect" data-d="easy" tabindex="0" role="button" aria-pressed="false">Fácil</div>
+      <div class="dsect" data-d="normal" tabindex="0" role="button" aria-pressed="true">Normal</div>
+      <div class="dsect" data-d="hard" tabindex="0" role="button" aria-pressed="false">Difícil</div>
     </div>
-    <button id="btnSkillMenu">Árbol de habilidades (T)</button>
-    <button id="btnHow">Cómo jugar</button>
-    <button id="btnWipe">Borrar partida</button>
-    <p class="controls">A/D mover · Espacio saltar · Shift dash · J atacar/parry al BOMBO · Q rueda/ciclo · E especial · T skills · H números · Esc pausa · 1-4 notas boss/piano</p>
-    <p class="credit">Arte procedural estilo Kenney Pixel Platformer 18×18 (CC0: <a href="https://kenney.nl/assets/pixel-platformer" target="_blank">kenney.nl</a>). Sin assets externos: funciona offline con doble clic.</p>
+    <button id="btnSkillMenu" class="btn-ghost">Árbol de habilidades (T)</button>
+    <button id="btnHow" class="btn-ghost">Cómo jugar</button>
+    <button id="btnWipe" class="btn-ghost">Borrar partida</button>
+    <p class="controls">A/D mover · Espacio saltar · Shift dash · J atacar/parry al BOMBO · Q ciclo arma · E especial · T skills · H números · Esc pausa · 1-4 notas boss/piano</p>
+    <p class="credit">Sprites: Kenney Pixel Platformer 18×18 (CC0: <a href="https://kenney.nl/assets/pixel-platformer" target="_blank">kenney.nl</a>, en carpeta assets/ + License.txt). Con fallback procedural: funciona offline con doble clic.</p>
+    </div>
   </div>
 
-  <div id="pause" class="overlay hidden">
+  <div id="pause" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Pausa">
+    <div class="menu-panel">
     <h2>PAUSA</h2>
-    <button id="btnResume">Continuar</button>
-    <button id="btnSkillPause">Habilidades</button>
-    <button id="btnMenu">Volver al menú</button>
+    <button id="btnResume" class="btn-primary">Continuar</button>
+    <button id="btnSkillPause" class="btn-ghost">Habilidades</button>
+    <button id="btnMenu" class="btn-ghost">Volver al menú</button>
+    </div>
   </div>
 
-  <div id="skill" class="overlay hidden">
+  <div id="skill" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Árbol de habilidades">
+    <div class="menu-panel">
     <h2>Árbol de habilidades — <span id="skillEchoes"></span></h2>
     <div id="skillGrid"></div>
-    <button id="btnCloseSkill">Cerrar (T/Esc)</button>
+    <button id="btnCloseSkill" class="btn-primary">Cerrar (T/Esc)</button>
+    </div>
   </div>
 
-  <div id="how" class="overlay hidden">
+  <div id="how" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Cómo jugar">
+    <div class="menu-panel">
     <h2>Cómo jugar (30 segundos)</h2>
     <div id="howGrid">
       <div class="hcard"><b>1 · Muévete</b><br>A/D o ←/→ para andar<br>Espacio/W para saltar</div>
@@ -66,16 +73,12 @@
       <div class="hcard"><b>5 · Números</b><br>-N blanco = tu daño · -N amarillo = fuerte+stun<br>23ms = tu precisión · xN = racha · H oculta daño</div>
       <div class="hcard"><b>6 · Bullet-hell escala</b><br>Cada boss pone su BPM y más balas.<br>Resonator tutorial → Primordial infierno.</div>
     </div>
-    <button id="btnCloseHow">¡Entendido! (Enter/J/Esc)</button>
+    <button id="btnCloseHow" class="btn-primary">¡Entendido! (Enter/J/Esc)</button>
+    </div>
   </div>
 
-  <div id="wheel" class="hidden">
-    <div class="wsect" data-w="0">PulseBlade</div>
-    <div class="wsect" data-w="1">VoidWave</div>
-    <div class="wsect" data-w="2">EchoShot</div>
-  </div>
-
-  <div id="piano" class="overlay hidden">
+  <div id="piano" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Secuencia de piano">
+    <div class="menu-panel">
     <h2 id="pianoTitle">Secuencia</h2>
     <p id="pianoProg"></p>
     <div id="pianoKeys">
@@ -85,9 +88,11 @@
       <div class="pkey" data-k="3">4</div>
     </div>
     <p class="controls">Pulsa 1-4 en el BOMBO (ventana según dificultad)</p>
+    </div>
   </div>
 </div>
 <script src="js/config.js"></script>
+<script src="js/assets.js"></script>
 <script src="js/systems.js"></script>
 <script src="js/world.js"></script>
 <script src="js/combat.js"></script>

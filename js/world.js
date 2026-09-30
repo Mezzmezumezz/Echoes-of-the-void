@@ -6,7 +6,7 @@ let player,slimes=[],bosses=[],pProj=[],eProj=[],parts=[],floaters=[],notes=[];
 let lastKickSeen=0,noteCombo=0,noteBest=0;
 let doors=[];
 let shards=[],locks=[];
-let atkCd=0,comboIdx=0,comboT=0,dashT=0,dashCd=0,iframes=0,coyote=0,jbuf=0,jumps=0,deadT=0,tutIdx=-1,tutT=0;
+let atkCd=0,comboIdx=0,comboT=0,dashT=0,dashCd=0,iframes=0,coyote=0,jbuf=0,jumps=0,deadT=0;
 let wi=0;
 let patId=0;
 let _warnArena=-1;
@@ -48,9 +48,7 @@ function tryLockBosses(){
       floaters.push({x:player.x,y:player.y-90,txt:'▼ SELLADO ▼',t:1.6,c:'#f66'});
       beep(90,0.5,0.3,'sawtooth');beep(180,0.3,0.2,'square');
       // Polvo en ambas puertas al cerrar
-      for(const dx of [a[0],a[1]]){
-        for(let i=0;i<12;i++)parts.push({x:dx,y:700+Math.random()*150,vx:(Math.random()-0.5)*260,vy:-Math.random()*220,t:0.5,c:'#f66'});
-      }
+      for(const dx of [a[0],a[1]])burst(dx,775,'#f66',12,260);
       hitstop(0.08,0.4);
       updateDoorState();
     }
@@ -69,7 +67,7 @@ function fixLockedOutPlayer(){
     iframes=Math.max(iframes,0.8);
     floaters.push({x:player.x,y:player.y-90,txt:'¡Devuelto a la arena!',t:1.4,c:'#ffd933'});
     beep(880,0.15,0.2);
-    for(let i=0;i<14;i++)parts.push({x:player.x,y:player.y-20,vx:(Math.random()-0.5)*300,vy:-Math.random()*260,t:0.5,c:'#ffd933'});
+    burst(player.x,player.y-20,'#ffd933',14,300);
   }
 }
 // Aviso proximity: cuando te acercas a una arena sin matar, muestra hint una vez
@@ -125,16 +123,6 @@ function moveBody(e,dt){
     for(const s of Ss){if(rectHit(r,s)){if(e.vy>0){e.y=s.y;e.vy=0;e.onFloor=true;}else if(e.vy<0){e.y=s.y+s.h+e.h;e.vy=0;}r={x:e.x-e.w/2,y:e.y-e.h,w:e.w,h:e.h};}}
     if(e.vx===0&&e.vy===0&&e.onFloor)break;
   }
-}
-// Mueve al jugador con colisión por ejes (para blackhole/pulls)
-function movePlayerBy(dx,dy){
-  const Ss=solids();
-  let r0={x:player.x-player.w/2+dx,y:player.y-player.h,w:player.w,h:player.h};
-  let blockedX=Ss.some(s=>rectHit(r0,s));
-  if(!blockedX)player.x+=dx;
-  let r1={x:player.x-player.w/2,y:player.y-player.h+dy,w:player.w,h:player.h};
-  let blockedY=Ss.some(s=>rectHit(r1,s));
-  if(!blockedY)player.y+=dy;
 }
 function checkCheckpoints(){
   // Activa el checkpoint más avanzado que el jugador haya superado

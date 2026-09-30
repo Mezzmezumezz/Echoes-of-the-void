@@ -1,7 +1,8 @@
-// js/render.js — dibujo procedural mejorado (pixel-art por rects)
+// js/render.js — Kenney Pixel Platformer (CC0) + fallback procedural por rects
 'use strict';
 function R(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x-camX),Math.round(y-camY),w,h);}
 function draw(){
+  ctx.imageSmoothingEnabled=false;
   // fondo degradado + luna + estrellas 2 capas
   const grd=ctx.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#0b0b18');grd.addColorStop(0.6,'#14141f');grd.addColorStop(1,'#1d1426');
   ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
@@ -9,9 +10,20 @@ function draw(){
   ctx.fillStyle='#d9d6a8';ctx.beginPath();ctx.arc(792-camX*0.05,84,26,0,7);ctx.fillStyle='#0b0b18';ctx.beginPath();ctx.arc(792-camX*0.05,84,22,0,7);ctx.fill();
   ctx.fillStyle='#22223a';for(let i=0;i<40;i++){const sx=((i*457)-camX*0.3)%W;ctx.fillRect((sx+W)%W,(i*89)%H,2,2);}
   ctx.fillStyle='#3a3a5c';for(let i=0;i<24;i++){const sx=((i*733+200)-camX*0.15)%W;ctx.fillRect((sx+W)%W,(i*137)%H,1,1);}
-  // suelo con borde + hierba
-  R(0,GROUND_TOP,WORLD_W,H,'#2b2b3d');R(0,GROUND_TOP,WORLD_W,4,'#5c5c8a');R(0,GROUND_TOP+4,WORLD_W,2,'#3d7a44');
-  for(let x=0;x<WORLD_W;x+=64){R(x,GROUND_TOP+8,32,3,'#34344a');}
+  // suelo: sprites Kenney (hierba + tierra 18px) o fallback procedural
+  let groundSpr=Assets.ok('grass')&&Assets.ok('dirt');
+  if(groundSpr){
+    R(0,GROUND_TOP,WORLD_W,H,'#2b2b3d'); // base por si algún tile aún carga
+    const x0=Math.max(0,Math.floor(camX/18)*18),x1=Math.min(WORLD_W,camX+W+18);
+    for(let wx=x0;wx<x1;wx+=18){
+      ctx.drawImage(Assets.img.grass,Math.round(wx-camX),Math.round(GROUND_TOP-camY),18,18);
+      for(let wy=GROUND_TOP+18;wy<camY+H;wy+=18)
+        ctx.drawImage(Assets.img.dirt,Math.round(wx-camX),Math.round(wy-camY),18,18);
+    }
+  }else{
+    R(0,GROUND_TOP,WORLD_W,H,'#2b2b3d');R(0,GROUND_TOP,WORLD_W,4,'#5c5c8a');R(0,GROUND_TOP+4,WORLD_W,2,'#3d7a44');
+    for(let x=0;x<WORLD_W;x+=64){R(x,GROUND_TOP+8,32,3,'#34344a');}
+  }
   // plataformas con highlight
   PLATS.forEach(p=>{const px=p[0]-p[2]/2,py=p[1]-p[3]/2;
     R(px,py,p[2],p[3],p[3]>100?'#3d3d5c':'#5a5a8a');
@@ -47,15 +59,29 @@ function draw(){
   // locks cofre
   locks.forEach(l=>{R(l.x-12,l.y-32,24,32,'#1e6aa8');R(l.x-12,l.y-32,24,6,'#3aa0f0');R(l.x-2,l.y-20,4,12,'#ffd933');ctx.fillStyle='#fff';ctx.font='10px monospace';ctx.fillText('J',l.x-4-camX,l.y-36-camY);});
   if(S.shade){R(S.shade.x-12,S.shade.y-32,24,32,'#555');R(S.shade.x-12,S.shade.y-32,24,6,'#888');R(S.shade.x-7,S.shade.y-24,4,4,'#0ff');R(S.shade.x+3,S.shade.y-24,4,4,'#0ff');}
-  // slimes con squash (flash se decrementa en update con dt, aquí solo lectura)
+  // slimes: sprite Kenney con squash, o fallback procedural (flash solo lectura)
   slimes.forEach(s=>{if(s.dead)return;const sq=s.squash||0;const w=s.w*(1+sq),h=s.h*(1-sq*0.8);
+    if(Assets.draw('slime',s.x,s.y,w+6,h+8,false)){
+      if((s.flash||0)>0){ctx.globalAlpha=0.7;R(s.x-w/2,s.y-h,w,h,'#fff');ctx.globalAlpha=1;}
+      else if(s.stun>0){ctx.globalAlpha=0.45;R(s.x-w/2,s.y-h,w,h,'#88f');ctx.globalAlpha=1;}
+      return;
+    }
     R(s.x-w/2,s.y-h,w,h,(s.flash||0)>0?'#fff':s.stun>0?'#88f':'#3c6');
     R(s.x-w/2,s.y-h,w,3,'#7f6');R(s.x-6,s.y-h+6,5,6,'#fff');R(s.x+2,s.y-h+6,5,6,'#fff');R(s.x-5,s.y-h+7,3,4,'#000');R(s.x+3,s.y-h+7,3,4,'#000');});
   // bosses con ojos + corona fase2 (dormido = atenuado + zZ, flash solo lectura)
   bosses.forEach(b=>{const c=(b.flash||0)>0?'#fff':b.color;
     if(!b.locked&&!b.dead)ctx.globalAlpha=0.55;
-    R(b.x-b.w/2,b.y-b.h,b.w,b.h,c);R(b.x-b.w/2,b.y-b.h,b.w,6,'#ffffff55');
-    R(b.x-14,b.y-b.h+16,10,10,b.locked?'#fff':'#666');R(b.x+4,b.y-b.h+16,10,10,b.locked?'#fff':'#666');R(b.x-11,b.y-b.h+19,4,5,'#000');R(b.x+7,b.y-b.h+19,4,5,'#000');
+    const sprBoss=Assets.draw('boss',b.x,b.y,b.w+10,b.h+12,false);
+    if(sprBoss){
+      // Tiñe el sprite con el color del boss para distinguirlos (el PNG base es naranja)
+      ctx.globalAlpha=(!b.locked&&!b.dead)?0.25:0.35;
+      R(b.x-b.w/2,b.y-b.h,b.w,b.h,c);
+      ctx.globalAlpha=(!b.locked&&!b.dead)?0.55:1;
+      if((b.flash||0)>0){ctx.globalAlpha=0.7;R(b.x-b.w/2,b.y-b.h,b.w,b.h,'#fff');ctx.globalAlpha=1;}
+    }else{
+      R(b.x-b.w/2,b.y-b.h,b.w,b.h,c);R(b.x-b.w/2,b.y-b.h,b.w,6,'#ffffff55');
+      R(b.x-14,b.y-b.h+16,10,10,b.locked?'#fff':'#666');R(b.x+4,b.y-b.h+16,10,10,b.locked?'#fff':'#666');R(b.x-11,b.y-b.h+19,4,5,'#000');R(b.x+7,b.y-b.h+19,4,5,'#000');
+    }
     if(b.phase2){
       R(b.x-b.w/2,b.y-b.h-10,b.w,8,'#ffd933');
       const pu=2+Math.sin(performance.now()/120)*1.5;
@@ -94,14 +120,20 @@ function draw(){
     ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(px,py-13);ctx.lineTo(px+13,py);ctx.lineTo(px,py+13);ctx.lineTo(px-13,py);ctx.closePath();ctx.fill();
     ctx.fillStyle='#000';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText(String(n.key+1),px,py+5);ctx.textAlign='left';
     ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,py-13);ctx.lineTo(px+13,py);ctx.lineTo(px,py+13);ctx.lineTo(px-13,py);ctx.closePath();ctx.stroke();});
-  // player con visor + espada
+  // player: sprite Kenney (casco) o fallback procedural con visor
   if(deadT<=0&&player){
     const blink=iframes>0&&Math.floor(performance.now()/60)%2;
     const c=blink?'#88f':'#33e6ff';
     if(dashT>0){R(player.x-12-player.face*20,player.y-32,20,32,'#8ff8');}
-    R(player.x-12,player.y-32,24,32,c);R(player.x-12,player.y-32,24,5,'#1a8aaa');
-    R(player.x+(player.face>0?2:-9),player.y-24,7,6,'#fff');R(player.x+(player.face>0?4:-7),player.y-23,3,4,'#000');
-    R(player.x-12,player.y-6,24,6,'#224'); // botas
+    if(Assets.ok('player')){
+      if(blink)ctx.globalAlpha=0.35;
+      Assets.draw('player',player.x,player.y,26,34,player.face<0);
+      ctx.globalAlpha=1;
+    }else{
+      R(player.x-12,player.y-32,24,32,c);R(player.x-12,player.y-32,24,5,'#1a8aaa');
+      R(player.x+(player.face>0?2:-9),player.y-24,7,6,'#fff');R(player.x+(player.face>0?4:-7),player.y-23,3,4,'#000');
+      R(player.x-12,player.y-6,24,6,'#224'); // botas
+    }
   }
   parts.forEach(p=>{
     if(p.ring){

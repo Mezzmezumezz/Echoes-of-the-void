@@ -22,8 +22,8 @@ const Rhythm={bpm:120,last:0,next:0,count:0,lastKick:0,kickCount:0,kickPat:[1,0,
   get interval(){return 60/this.bpm;},
   get kickGap(){return this.interval*2;},
   isKickBeat(c){return this.kickPat[c%this.kickPat.length]===1;},
-  rebase(){const t=performance.now()/1000;this.last=t;this.next=t+this.interval;this.count=0;this.lastKick=t;this.kickCount=0;},
-  hold(){const t=performance.now()/1000;this.last=t;this.next=t+this.interval;this.lastKick=t;},
+  rebase(keep){const t=performance.now()/1000;this.last=t;this.next=t+this.interval;this.lastKick=t;if(!keep){this.count=0;this.kickCount=0;}},
+  hold(){this.rebase(true);},
   update(){const t=performance.now()/1000;if(!this.next)this.rebase();
     while(t>=this.next){const bt=this.next;this.last=bt;this.next+=this.interval;this.count++;
       const kick=this.isKickBeat(this.count);
@@ -42,17 +42,13 @@ const Rhythm={bpm:120,last:0,next:0,count:0,lastKick:0,kickCount:0,kickPat:[1,0,
     if(ms<=D.perfect)return{r:'PERFECT',m:1.5,ms};if(ms<=D.good)return{r:'GOOD',m:1.2,ms};return{r:'MISS',m:0.6,ms};}
 };
 
-// ---------- TIME SCALE (sin slow-mo: el juego siempre va a 1.0) ----------
-// Se eliminó el slow-mo de rueda/skills porque rompía el ritmo y se sentía horrible.
-// Solo queda un hitstop MUY corto para impactos grandes (stun/muerte/daño al jugador).
-let timeScale=1,externalScale=1,hitstopT=0,hitstopScale=1;
-function setSlowmo(s){externalScale=1;if(!hitstopT)timeScale=1;}
-function clearSlowmo(){externalScale=1;if(!hitstopT)timeScale=1;}
+// ---------- TIME SCALE (hitstop corto para impactos grandes) ----------
+let timeScale=1,hitstopT=0,hitstopScale=1;
 function hitstop(dur=0.05,scale=0.35){if(dur>0.14)dur=0.14;hitstopT=dur;hitstopScale=scale;timeScale=scale;}
-function updateTimescale(rdt){if(hitstopT>0){hitstopT-=rdt;timeScale=hitstopScale;if(hitstopT<=0){timeScale=1;externalScale=1;}}else{timeScale=1;}}
+function updateTimescale(rdt){if(hitstopT>0){hitstopT-=rdt;timeScale=hitstopScale;if(hitstopT<=0)timeScale=1;}else timeScale=1;}
 
 // ---------- TIMERS ESCALADOS (reemplazo de setTimeout en lógica) ----------
-// Usa dt escalado, respeta slow-mo/hitstop/pausa. Para UI seguir usando setTimeout.
+// Usa dt escalado, respeta hitstop/pausa. Para UI seguir usando setTimeout.
 let delayed=[];
 function later(fn,sec,pid){delayed.push({t:sec,fn,pid});}
 function updateDelayed(dt){

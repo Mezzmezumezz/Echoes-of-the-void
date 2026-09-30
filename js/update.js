@@ -101,7 +101,10 @@ function update(rdt){
   pProj=pProj.filter(p=>p.life>0&&p.x>0&&p.x<WORLD_W);
   eProj.forEach(p=>{
     if(p.hole){p.t-=rdt;const dx=player.x-p.x,dy=(player.y-16)-p.y,d=Math.hypot(dx,dy)||1;
-      if(d<160&&d>1){movePlayerBy(-dx/d*280*dt,-dy/d*280*dt);p.tick=(p.tick||0)-dt;if(p.tick<=0){p.tick=0.5;hurtPlayer(6);}}
+      if(d<160&&d>1){const mx=-dx/d*280*dt,my=-dy/d*280*dt,Ss=solids();
+        if(!Ss.some(s=>rectHit({x:player.x-player.w/2+mx,y:player.y-player.h,w:player.w,h:player.h},s)))player.x+=mx;
+        if(!Ss.some(s=>rectHit({x:player.x-player.w/2,y:player.y-player.h+my,w:player.w,h:player.h},s)))player.y+=my;
+        p.tick=(p.tick||0)-dt;if(p.tick<=0){p.tick=0.5;hurtPlayer(6);}}
       return;}
     if(p.bounce!==undefined){
       p.x+=p.vx*dt;p.y+=p.vy*dt;p.leg-=Math.hypot(p.vx,p.vy)*dt;
@@ -115,7 +118,7 @@ function update(rdt){
         let b=null;
         if(bosses.length){b=bosses.reduce((a,b2)=>Math.abs(b2.x-player.x)<Math.abs(a.x-player.x)?b2:a,bosses[0]);}
         if(b){dealBossDmg(b,36);floaters.push({x:player.x,y:player.y-60,txt:'PARRY',t:0.8,c:'#33e6ff'});
-          for(let i=0;i<8;i++)parts.push({x:player.x,y:player.y-30,vx:(Math.random()-0.5)*360,vy:-Math.random()*280,t:0.4,c:'#33e6ff'});
+          burst(player.x,player.y-30,'#33e6ff',8,360);
         }
         beep(1200,0.1,0.2);
       }else{p.life=0;hurtPlayer(p.dmg);}
@@ -139,9 +142,6 @@ function update(rdt){
     p.t-=dt;
   });
   parts=parts.filter(p=>p.t>0);floaters.forEach(f=>{f.y-=40*dt;f.t-=dt;});floaters=floaters.filter(f=>f.t>0);
-  // Tutorial superior desactivado por petición: ya no muestra carteles arriba.
-  // Se oculta siempre por si quedó visible de una partida anterior.
-  if(tutIdx!==-1||tutT>0){tutIdx=-1;tutT=0;const el=$('tutorial');if(el)el.style.display='none';}
   camX=Math.max(0,Math.min(WORLD_W-W,player.x-W/2));camY=Math.max(180,Math.min(360,player.y-300));
   $('bpmlabel').textContent=Rhythm.bpm+' BPM · BOMBO '+Rhythm.kickCount;
   $('hpfill').style.width=(100*player.hp/maxHP())+'%';$('hptext').textContent=Math.ceil(player.hp)+' / '+maxHP();
