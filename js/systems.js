@@ -42,21 +42,24 @@ const Rhythm={bpm:120,last:0,next:0,count:0,lastKick:0,kickCount:0,kickPat:[1,0,
     if(ms<=D.perfect)return{r:'PERFECT',m:1.5,ms};if(ms<=D.good)return{r:'GOOD',m:1.2,ms};return{r:'MISS',m:0.6,ms};}
 };
 
-// ---------- MUSICA (2 .wav en loop gapless + crossfade a 120 BPM) ----------
-// menu  = pantalla de carga + pausa -> assets/soundtrack_pantalla_de_carga.wav (32s = 16 compases)
-// main  = exploracion (play sin boss) -> assets/soundtrack_principal.wav (32s = 16 compases)
-// bosses = fade-out a silencio (solo SFX/beeps)
-// Ambos a 120 BPM: beat=0.5s, crossfade de 1.0s (=2 beats) para no romper la fase.
+// ---------- MUSICA (2 .wav en loop gapless + crossfade a 120 BPM + boss tracks) ----------
+// menu  = pantalla de carga + pausa -> assets/soundtrack_pantalla_de_carga.wav (32s = 16 compases @ 120)
+// main  = exploracion (play sin boss) -> assets/soundtrack_principal.wav (32s = 16 compases @ 120)
+// boss Resonator fase 1 (95 BPM) -> assets/boss_resonator_95bpm.wav (10.26s = 4 compases @ 95)
+// bosses sin track = fade-out a silencio (solo SFX/beeps)
+// Crossfade 1.0s (=2 beats @ 120) para no romper la fase.
 const Music={
-  menu:null,main:null,current:null,target:'__none__',unlocked:false,
-  VOL:{menu:0.45,main:0.4},FADE:1.0,fadeTimer:null,
+  menu:null,main:null,bossRes:null,current:null,target:'__none__',unlocked:false,
+  VOL:{menu:0.45,main:0.4,boss:0.5},FADE:1.0,fadeTimer:null,
   init(){
-    if(this.menu||this.main)return;
+    if(this.menu||this.main||this.bossRes)return;
     try{
       this.menu=new Audio('assets/soundtrack_pantalla_de_carga.wav');
       this.menu.loop=true;this.menu.preload='auto';this.menu.volume=0;
       this.main=new Audio('assets/soundtrack_principal.wav');
       this.main.loop=true;this.main.preload='auto';this.main.volume=0;
+      this.bossRes=new Audio('assets/boss_resonator_95bpm.wav');
+      this.bossRes.loop=true;this.bossRes.preload='auto';this.bossRes.volume=0;
     }catch(e){console.warn('[music] no se pudo crear Audio:',e);}
   },
   play(name){
@@ -64,28 +67,28 @@ const Music={
     if(this.target===name)return;
     this.target=name;
     if(!this.unlocked)return;
-    const els={menu:this.menu,main:this.main};
-    const goals={menu:name==='menu'?this.VOL.menu:0,main:name==='main'?this.VOL.main:0};
+    const els={menu:this.menu,main:this.main,boss:this.bossRes};
+    const goals={menu:name==='menu'?this.VOL.menu:0,main:name==='main'?this.VOL.main:0,boss:name==='bossRes'?this.VOL.boss:0};
     try{
-      for(const k of ['menu','main']){
+      for(const k of ['menu','main','boss']){
         const el=els[k];if(!el)continue;
         if(goals[k]>0&&el.paused){el.volume=0;const p=el.play();if(p&&p.catch)p.catch(()=>{});}
       }
     }catch(e){}
     if(this.fadeTimer){clearInterval(this.fadeTimer);this.fadeTimer=null;}
-    const startV={menu:els.menu?els.menu.volume:0,main:els.main?els.main.volume:0};
+    const startV={menu:els.menu?els.menu.volume:0,main:els.main?els.main.volume:0,boss:els.boss?els.boss.volume:0};
     const t0=performance.now(),dur=(name===null?600:this.FADE*1000),M=this;
     this.fadeTimer=setInterval(()=>{
       const t=Math.min(1,(performance.now()-t0)/dur);
       const s=t*t*(3-2*t); // smoothstep: transicion suave sin saltos
       try{
-        for(const k of ['menu','main']){
+        for(const k of ['menu','main','boss']){
           const el=els[k];if(!el)continue;
           el.volume=Math.max(0,Math.min(1,startV[k]+(goals[k]-startV[k])*s));
         }
         if(t>=1){
           clearInterval(M.fadeTimer);M.fadeTimer=null;M.current=name;
-          for(const k of ['menu','main']){
+          for(const k of ['menu','main','boss']){
             const el=els[k];if(!el)continue;
             if(goals[k]===0){if(!el.paused)el.pause();}
             else el.volume=goals[k];
@@ -103,13 +106,22 @@ function updateMusic(){
   // Overlays dentro de play (skills/piano/tutorial) no cambian la musica
   if(typeof skillOpen!=='undefined'&&skillOpen&&typeof state!=='undefined'&&state==='play')return;
   if(typeof Piano!=='undefined'&&Piano.active)return;
-  if(typeof tutHowOpen!=='undefined'&&tutHowOpen&&typeof state!=='undefined'&&state==='play')return;
+  if(typeof tutHowOpen!=='undefined'&&tutHowOpen&&typeof state==='play')return;
   let want=null;
   if(state==='menu'||state==='pause')want='menu';
   else if(state==='play'){
     let ab=null;
     try{ab=(typeof activeBoss==='function')?activeBoss():null;}catch(_){}
-    want=ab?null:'main';
+    if(ab){
+      // Resonator (idx 0): fase 1 = 95 BPM -> track bossRes; fase 2 = 130 BPM -> silencio por ahora
+      if(ab.type==='Resonator'){
+        want=ab.phase2?null:'bossRes';
+      }else{
+        want=null; // otros bosses: silencio
+      }
+    }else{
+      want='main';
+    }
   }
   Music.play(want);
 }
