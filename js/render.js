@@ -97,29 +97,30 @@ function draw(){
   pProj.forEach(p=>{R(p.x-9,p.y-5,p.w,p.h,'#8ff');R(p.x-9,p.y-5,p.w,2,'#fff');});
   // bullet-hell: balas rojas circulares con núcleo blanco
   eProj.forEach(p=>{if(p.hole){ctx.strokeStyle='#b4f';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x-camX,p.y-camY,20+5*Math.sin(performance.now()/100),0,7);ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x-camX,p.y-camY,10+3*Math.sin(performance.now()/70),0,7);ctx.stroke();}else{const px=p.x-camX,py=p.y-camY;ctx.fillStyle=p.hell?'#ff2255':'#f6c';ctx.beginPath();ctx.arc(px,py,8,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(px,py,3.2,0,7);ctx.fill();}});
-  // notas osu/piano-tiles: diamante de color + número de tecla
+  // Autopista piano-tiles: 4 carriles que caen sobre las cajas 1-4; línea y anillos al BOMBO
   if(activeBoss&&player){
     const ab=activeBoss();
-    if(ab){ctx.strokeStyle='#ffffff33';ctx.lineWidth=2;ctx.beginPath();ctx.arc(player.x-camX,player.y-16-camY,NOTE_HIT_R,0,7);ctx.stroke();}
+    if(ab){
+      const nowS=performance.now()/1000,sinceKick=nowS-Rhythm.lastKick;
+      for(let i=0;i<4;i++){const lx=HW_X[i];
+        ctx.fillStyle='rgba(255,255,255,0.045)';ctx.fillRect(lx-22,HW_Y0-14,44,HW_HIT-HW_Y0+24);
+        ctx.fillStyle=NOTE_COLORS[i];ctx.globalAlpha=0.5;ctx.fillRect(lx-22,HW_HIT-1,44,2);ctx.globalAlpha=1;}
+      // Línea de golpe: destella en cada BOMBO (cue visual)
+      const flash=sinceKick<0.15?1-sinceKick/0.15:0;
+      ctx.fillStyle='#fff';ctx.globalAlpha=0.35+0.65*flash;ctx.fillRect(HW_X[0]-30,HW_HIT-1,(HW_X[3]-HW_X[0])+60,2);ctx.globalAlpha=1;
+      for(const n of notes){
+        if(n.dead)continue;
+        const px=n.x,py=n.y,c=NOTE_COLORS[n.key];
+        if(py<-24||py>560)continue;
+        // Anillo de aproximación: converge a la ficha justo al BOMBO
+        const tLeft=n.tHit-nowS;
+        if(tLeft>0){const ar=16+Math.min(1.4,tLeft)*150;ctx.strokeStyle=c;ctx.globalAlpha=Math.max(0,0.65-tLeft*0.3);ctx.lineWidth=2;ctx.beginPath();ctx.arc(px,py,ar,0,7);ctx.stroke();ctx.globalAlpha=1;}
+        if(sinceKick<0.12){ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px,py,17,0,7);ctx.stroke();}
+        ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(px,py-13);ctx.lineTo(px+13,py);ctx.lineTo(px,py+13);ctx.lineTo(px-13,py);ctx.closePath();ctx.fill();
+        ctx.fillStyle='#000';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText(String(n.key+1),px,py+5);ctx.textAlign='left';
+        ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,py-13);ctx.lineTo(px+13,py);ctx.lineTo(px,py+13);ctx.lineTo(px-13,py);ctx.closePath();ctx.stroke();}
+    }
   }
-  notes.forEach(n=>{const px=n.x-camX,py=n.y-camY,c=NOTE_COLORS[n.key];
-    const dd=player?Math.hypot(player.x-n.x,(player.y-16)-n.y):300;
-    const ring=14+Math.min(dd,420)*0.32;
-    ctx.strokeStyle=c;ctx.globalAlpha=0.75;ctx.lineWidth=2;
-    ctx.beginPath();ctx.arc(px,py,ring,0,7);ctx.stroke();ctx.globalAlpha=1;
-    // Anillo de aproximación al BOMBO: se encoge hacia 17 cuando llega el kick (estilo osu)
-    try{
-      const nowS=performance.now()/1000;
-      const gap=Rhythm.kickGap||0.5;
-      const tKick=Math.max(0,(Rhythm.next||nowS)-nowS);
-      const k=(Rhythm.isKickBeat((Rhythm.count||0)+1))?Math.max(0,Math.min(1,1-tKick/gap)):1;
-      const appr=17+(1-k)*46;
-      if(k<1){ctx.strokeStyle='#ffffffcc';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px,py,appr,0,7);ctx.stroke();}
-    }catch(_){}
-    if((performance.now()/1000-Rhythm.lastKick)<0.12){ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px,py,17,0,7);ctx.stroke();}
-    ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(px,py-13);ctx.lineTo(px+13,py);ctx.lineTo(px,py+13);ctx.lineTo(px-13,py);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#000';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText(String(n.key+1),px,py+5);ctx.textAlign='left';
-    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,py-13);ctx.lineTo(px+13,py);ctx.lineTo(px,py+13);ctx.lineTo(px-13,py);ctx.closePath();ctx.stroke();});
   // player: sprite Kenney (casco) o fallback procedural con visor
   if(deadT<=0&&player){
     const blink=iframes>0&&Math.floor(performance.now()/60)%2;

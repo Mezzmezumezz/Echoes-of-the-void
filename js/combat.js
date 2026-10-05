@@ -141,17 +141,18 @@ function die(){
 }
 function respawn(){player=newPlayer();player.hp=maxHP();deadT=0;Rhythm.bpm=120;Rhythm.rebase();resetWorld();player.hp=maxHP();player.x=checkpointX(S.checkpoint);}
 
-// ---------- BULLET-HELL + NOTAS OSU/PIANO-TILES (boss lock-in) ----------
+// ---------- BULLET-HELL + NOTAS PIANO-TILES (boss lock-in) ----------
 const NOTE_COLORS=['#33e6ff','#b34dff','#ffd933','#33ff99'];
-const NOTE_SPEED=300,NOTE_HIT_R=150,NOTE_HURT_R=24;
-function spawnNote(b,forceKey,angOff,spdMul){
-  if(notes.length>=7)return;
+// Autopista: 4 carriles en pantalla que caen sobre las cajas 1-4 del HUD.
+// Cada ficha nace en un BOMBO y llega a la línea justo NOTE_LEAD bombos después.
+const HW_X=[402,454,506,558],HW_Y0=84,HW_HIT=470,NOTE_LEAD=2;
+function spawnNote(b,forceKey){
+  if(notes.length>=7||!b||b.dead)return;
   const key=forceKey!==undefined?forceKey:Math.floor(Math.random()*4);
-  const sx=b.x,sy=b.y-60;
-  let dx=player.x-sx,dy=(player.y-16)-sy;
-  if(angOff){const a=Math.atan2(dy,dx)+angOff;const d=Math.hypot(dx,dy)||1;dx=Math.cos(a)*d;dy=Math.sin(a)*d;}
-  const d=Math.hypot(dx,dy)||1,sp=NOTE_SPEED*(spdMul||1);
-  notes.push({x:sx,y:sy,vx:dx/d*sp,vy:dy/d*sp,key,life:4.5,tick:0,dist0:d});
+  const now=performance.now()/1000,gap=Rhythm.kickGap||1;
+  let tHit=now+NOTE_LEAD*gap;
+  if(notes.some(m=>m.key===key&&Math.abs(m.tHit-tHit)<0.45*gap))tHit+=0.5*gap; // no solapar mismo carril
+  notes.push({x:HW_X[key],y:HW_Y0,key,tHit,spd:(HW_HIT-HW_Y0)/(tHit-now),t0:now,dead:false});
   beep(660+key*165,0.09,0.12);
 }
 function breakNoteCombo(silent){
@@ -161,25 +162,26 @@ function breakNoteCombo(silent){
 function hitNote(key){
   if(state!=='play'||Piano.active||skillOpen||tutHowOpen)return;
   const b=activeBoss();if(!b)return;
+  const now=performance.now()/1000,D=diff(),lim=(D.good+60)/1000;
   let best=null,bd=1e9;
-  for(const n of notes){if(n.key!==key)continue;
-    const d=Math.hypot(player.x-n.x,(player.y-16)-n.y);
+  for(const n of notes){if(n.key!==key||n.dead)continue;
+    const d=Math.abs(n.tHit-now);
     if(d<bd){bd=d;best=n;}}
-  if(!best||bd>NOTE_HIT_R){beep(180,0.05,0.08);player.en=Math.max(0,player.en-2);breakNoteCombo(true);return;} // whiff: -2 en + rompe racha
-  const ev=Rhythm.evaluate();
-  notes.splice(notes.indexOf(best),1);
+  if(!best||bd>lim){beep(180,0.05,0.08);player.en=Math.max(0,player.en-2);breakNoteCombo(true);return;} // whiff: -2 en + rompe racha
+  const r=bd<=D.perfect/1000?'PERFECT':bd<=D.good/1000?'GOOD':'LATE';
+  const ms=Math.round(bd*1000);
+  best.dead=true;
   noteCombo++;noteBest=Math.max(noteBest,noteCombo);
   const streak=Math.min(noteCombo-1,10);
-  const dmg=(ev.r==='PERFECT'?34:ev.r==='GOOD'?22:8)+streak;
-  player.en=Math.min(100,player.en+(ev.r==='PERFECT'?10:ev.r==='GOOD'?5:0));
+  const dmg=(r==='PERFECT'?34:r==='GOOD'?22:8)+streak;
+  player.en=Math.min(100,player.en+(r==='PERFECT'?10:r==='GOOD'?5:0));
   dealBossDmg(b,dmg);
   const comboTxt=noteCombo>=2?' x'+noteCombo:'';
-  floaters.push({x:player.x,y:player.y-70,txt:(ev.r==='PERFECT'?'PERFECT ':'')+'♪'+(key+1)+comboTxt,t:0.7,c:NOTE_COLORS[key]});
-  $('timelabel').textContent=ev.r+' ♪'+(key+1)+comboTxt+' '+Math.round(ev.ms)+'ms';
-  $('timelabel').style.color=ev.r==='PERFECT'?'#ffd933':ev.r==='GOOD'?'#3f6':'#f66';
-  const base=ev.r==='PERFECT'?1200:ev.r==='GOOD'?900:440;
-  beep(base+Math.min(noteCombo,12)*40,0.1,0.18);
-  burst(best.x,best.y,NOTE_COLORS[key],10,320);
+  floaters.push({x:player.x,y:player.y-70,txt:(r==='PERFECT'?'PERFECT ':'')+'♪'+(key+1)+comboTxt,t:0.7,c:NOTE_COLORS[key]});
+  $('timelabel').textContent=r+' ♪'+(key+1)+comboTxt+' '+ms+'ms';
+  $('timelabel').style.color=r==='PERFECT'?'#ffd933':r==='GOOD'?'#3f6':'#f66';
+  beep((r==='PERFECT'?1200:r==='GOOD'?900:440)+Math.min(noteCombo,12)*40,0.1,0.18);
+  burst(best.x,HW_HIT,NOTE_COLORS[key],10,320);
 }
 // Barrage rítmico por boss: cada tipo favorece sus modos (personalidad).
 // Resonator=RING/FAN simple · Bass=RAIN pesada · Choir=SPIRAL/FAN · Void=FAN/RAIN · Prime=SPIRAL rápido · Primordial=todo denso.

@@ -19,20 +19,25 @@
     <canvas id="minimap" width="240" height="28"></canvas>
     <div id="hint"></div>
     <div id="lanes">
-      <div class="lane" data-k="0">1</div>
-      <div class="lane" data-k="1">2</div>
-      <div class="lane" data-k="2">3</div>
-      <div class="lane" data-k="3">4</div>
+      <div class="lane" data-k="0">1<small>Z</small></div>
+      <div class="lane" data-k="1">2<small>X</small></div>
+      <div class="lane" data-k="2">3<small>C</small></div>
+      <div class="lane" data-k="3">4<small>V</small></div>
     </div>
   </div>
 
   <div id="title" class="overlay">
     <h1>ECHOES OF THE VOID</h1>
     <p class="sub">Rhythm-action Metroidvania — port web (Canvas + WebAudio)</p>
-    <p class="press">— Pulsa cualquier tecla o haz clic para continuar —</p>
+    <div id="slideStart" class="sc" role="slider" tabindex="0" aria-label="Desliza para empezar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <span class="sc-label">Desliza para empezar</span>
+      <div class="sc-fill"></div>
+      <div class="sc-handle">→</div>
+    </div>
   </div>
 
   <div id="menu" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Menú principal">
+    <canvas class="waves" aria-hidden="true"></canvas>
     <div class="menu-panel">
     <h1>ECHOES OF THE VOID</h1>
     <p class="sub">Rhythm-action Metroidvania — port web (Canvas + WebAudio)</p>
@@ -46,12 +51,13 @@
     <button id="btnSkillMenu" class="btn-ghost">Árbol de habilidades (T)</button>
     <button id="btnHow" class="btn-ghost">Cómo jugar</button>
     <button id="btnWipe" class="btn-ghost">Borrar partida</button>
-    <p class="controls">A/D mover · Espacio saltar · Shift dash · J atacar/parry al BOMBO · Q ciclo arma · E especial · T skills · H números · Esc pausa · 1-4 notas boss/piano</p>
+    <p class="controls">A/D mover · Espacio saltar · Shift dash · J/clic atacar (parry al BOMBO) · Q arma · E/K especial · T skills · H números · Esc pausa · 1-4 o Z-X-C-V notas</p>
     <p class="credit">Sprites: Kenney Pixel Platformer 18×18 (CC0: <a href="https://kenney.nl/assets/pixel-platformer" target="_blank">kenney.nl</a>, en carpeta assets/ + License.txt). Con fallback procedural: funciona offline con doble clic.</p>
     </div>
   </div>
 
   <div id="pause" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Pausa">
+    <canvas class="waves" aria-hidden="true"></canvas>
     <div class="menu-panel">
     <h2>PAUSA</h2>
     <button id="btnResume" class="btn-primary">Continuar</button>
@@ -73,9 +79,9 @@
     <h2>Cómo jugar (30 segundos)</h2>
     <div id="howGrid">
       <div class="hcard"><b>1 · Muévete</b><br>A/D o ←/→ para andar<br>Espacio/W para saltar</div>
-      <div class="hcard"><b>2 · Ataca en el BOMBO</b><br>J cuando el cuadro se ponga ROJO<br>PERFECT x1.5 / GOOD x1.2 · J también hace PARRY</div>
+      <div class="hcard"><b>2 · Ataca en el BOMBO</b><br>J o clic cuando el cuadro se ponga ROJO<br>PERFECT x1.5 / GOOD x1.2 · J también hace PARRY</div>
       <div class="hcard"><b>3 · Armas y dash</b><br>Q tap = cambiar arma<br>Shift = dash · E = especial · Tus balas rompen balas</div>
-      <div class="hcard"><b>4 · Boss sellado + notas</b><br>Entrar SELLA la arena (sin salida).<br>Notas ♪ con 1-4: ¡racha xN sube daño!</div>
+      <div class="hcard"><b>4 · Boss sellado + notas</b><br>Entrar SELLA la arena (sin salida).<br>Notas ♪ con 1-4 o Z-X-C-V: ¡racha xN sube daño!</div>
       <div class="hcard"><b>5 · Números</b><br>-N blanco = tu daño · -N amarillo = fuerte+stun<br>23ms = tu precisión · xN = racha · H oculta daño</div>
       <div class="hcard"><b>6 · Bullet-hell escala</b><br>Cada boss pone su BPM y más balas.<br>Resonator tutorial → Primordial infierno.</div>
     </div>
@@ -93,7 +99,7 @@
       <div class="pkey" data-k="2">3</div>
       <div class="pkey" data-k="3">4</div>
     </div>
-    <p class="controls">Pulsa 1-4 en el BOMBO (ventana según dificultad)</p>
+    <p class="controls">Pulsa 1-4 o Z-X-C-V en el BOMBO (ventana según dificultad)</p>
     </div>
   </div>
 </div>
@@ -105,6 +111,7 @@
 <script src="js/ui.js"></script>
 <script src="js/update.js"></script>
 <script src="js/render.js"></script>
+<script src="js/waves.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

@@ -28,11 +28,12 @@ function bindUI(){
   document.querySelectorAll('.dsect').forEach(el=>{el.onclick=()=>setDifficulty(el.dataset.d);el.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();setDifficulty(el.dataset.d);}};});
   document.querySelectorAll('.pkey').forEach(el=>{el.onclick=()=>Piano.press(Number(el.dataset.k));});
   document.querySelectorAll('.lane').forEach(el=>{el.onclick=()=>{const k=Number(el.dataset.k);hitNote(k);flashLane(k);};});
+  $('game').onpointerdown=()=>attack(); // clic = atacar (los overlays tapan el canvas fuera de play)
 }
-bindUI();markDiff();syncWeapon();resetWorld();Rhythm.rebase();
-// ---------- PANTALLA DE TITULO previa al menu ----------
-// Sale con cualquier clic o tecla, muestra el menu principal y desbloquea la musica.
-// Usa captura para tragarse ese primer gesto (no arranca el juego con Enter ni atraviesa clics).
+bindUI();markDiff();syncWeapon();initSlide();resetWorld();Rhythm.rebase();
+// ---------- PANTALLA DE TITULO: solo se sale con el slider (initSlide en ui.js) ----------
+// Sin auto-dismiss: así el primer gesto no puede filtrarse al juego ni saltear el slider.
+// El primer clic/tecla igual desbloquea la música vía unlockOnce.
 let titleDone=false;
 function dismissTitle(){
   if(titleDone)return;titleDone=true;
@@ -40,9 +41,7 @@ function dismissTitle(){
   showOverlay('menu',true);
   try{if(typeof Music!=='undefined')Music.unlock();}catch(e){}
 }
-addEventListener('pointerdown',e=>{if(!titleDone){e.stopPropagation();dismissTitle();}},true);
-addEventListener('keydown',e=>{if(!titleDone){e.stopPropagation();e.preventDefault();dismissTitle();}},true);
-// Autoplay: la musica solo puede sonar tras un gesto. El primer clic/tecla
+ // Autoplay: la musica solo puede sonar tras un gesto. El primer clic/tecla
 // desbloquea y arranca la pista de menu (pantalla de carga).
 function unlockOnce(){try{if(typeof Music!=='undefined')Music.unlock();}catch(e){}removeEventListener('pointerdown',unlockOnce);removeEventListener('keydown',unlockOnce);}
 addEventListener('pointerdown',unlockOnce);addEventListener('keydown',unlockOnce);

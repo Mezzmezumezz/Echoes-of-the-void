@@ -8,4 +8,4 @@ Buscado en internet: Kenney Pixel Platformer 18×18 CC0 (https://kenney.nl/asset
 Doble clic en `index.html`. Sin servidor, sin npm, solo teclado.
 
 ## Controles
-A/D mover · Espacio/W saltar · Shift dash · J atacar/interactuar · Q ciclo arma · E especial · T skills · Esc pausa · 1-4 piano
+A/D mover · Espacio/W saltar · Shift dash · J/clic atacar (parry al BOMBO) · Q ciclo arma · E/K especial · T skills · H números · Esc pausa · 1-4 o Z-X-C-V piano/notas

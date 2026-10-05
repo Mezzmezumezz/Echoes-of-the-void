@@ -49,11 +49,12 @@ function markLanes(){
   const ab=activeBoss&&state==='play'?activeBoss():null;
   const box=$('lanes');if(box)box.classList.toggle('on',!!ab);
   if(!ab)return;
+  const now=performance.now()/1000,win=(diff().good+60)/1000;
   for(let k=0;k<4;k++){
     const el=document.querySelector('.lane[data-k="'+k+'"]');if(!el)continue;
     let near=false;
-    for(const n of notes){if(n.key!==k)continue;
-      if(Math.hypot(player.x-n.x,(player.y-16)-n.y)<NOTE_HIT_R){near=true;break;}}
+    for(const n of notes){if(n.key!==k||n.dead)continue;
+      if(Math.abs(n.tHit-now)<win){near=true;break;}}
     el.classList.toggle('near',near);
   }
 }
@@ -65,9 +66,35 @@ let tutHowOpen=false;
 function openHow(){tutHowOpen=true;showOverlay('how',true);}
 function closeHow(){tutHowOpen=false;showOverlay('how',false);if(!S.howDone){S.howDone=true;save();}}
 
+// ---------- SLIDE TO START (pantalla de título, homenaje a SlideCommit) ----------
+// Sin dependencias: pointer events + teclado (flechas/Enter/End), commit -> dismissTitle().
+function initSlide(){
+  const sc=$('slideStart');if(!sc||sc.dataset.ready)return;sc.dataset.ready='1';
+  const handle=sc.querySelector('.sc-handle'),fill=sc.querySelector('.sc-fill');
+  let x=0,drag=null,done=false;
+  const grip=()=>handle.offsetWidth,TRAVEL=()=>Math.max(1,sc.clientWidth-8-grip());
+  const set=v=>{x=Math.max(0,Math.min(TRAVEL(),v));handle.style.left=(4+x)+'px';fill.style.width=(x+grip())+'px';sc.setAttribute('aria-valuenow',String(Math.round(x/TRAVEL()*100)));};
+  const home=()=>{sc.classList.add('anim');set(0);setTimeout(()=>sc.classList.remove('anim'),280);};
+  const commit=()=>{if(done)return;done=true;sc.classList.add('anim','done');set(TRAVEL());handle.textContent='✓';beep(880,0.12,0.2);setTimeout(dismissTitle,450);};
+  sc.addEventListener('pointerdown',e=>{if(done||e.button!==0)return;e.preventDefault();sc.classList.remove('anim');drag={id:e.pointerId,grab:(e.clientX-sc.getBoundingClientRect().left)-x};try{sc.setPointerCapture(e.pointerId);}catch(_){}});
+  sc.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;set(e.clientX-sc.getBoundingClientRect().left-drag.grab);});
+  const up=e=>{if(!drag||e.pointerId!==drag.id)return;drag=null;if(x>=TRAVEL()*0.98)commit();else home();};
+  sc.addEventListener('pointerup',up);sc.addEventListener('pointercancel',up);
+  sc.addEventListener('keydown',e=>{
+    const step=TRAVEL()/10;
+    if(e.key==='ArrowRight'||e.key==='ArrowUp'){e.preventDefault();sc.classList.remove('anim');set(x+step);if(x>=TRAVEL())commit();}
+    else if(e.key==='ArrowLeft'||e.key==='ArrowDown'){e.preventDefault();set(x-step);}
+    else if(e.key==='Enter'||e.key==='End'){e.preventDefault();commit();}
+    else if(e.key==='Home'||e.key==='Escape'){e.preventDefault();home();}
+  });
+  set(0);
+  try{sc.focus({preventScroll:true});}catch(_){try{sc.focus();}catch(_){}}
+}
+
 // ---------- INPUT (FIX Esc + FIX J) ----------
 const keys={};
 function onKeyDown(e){
+  const t=$('title');if(t&&!t.classList.contains('hidden'))return; // el slider gestiona sus teclas
   if(['Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();
   if(e.repeat)return;keys[e.code]=true;try{ac();}catch(_){}
   if(e.code==='Space'||e.code==='KeyW')jbuf=0.12;
@@ -93,7 +120,9 @@ function onKeyDown(e){
   // FIX: J interactúa O ataca, no ambas
   if(e.code==='KeyJ'){const used=tryInteract();if(!used)attack();return;}
   if(e.code==='KeyE'||e.code==='KeyK'){special();return;}
-  if(['Digit1','Digit2','Digit3','Digit4'].includes(e.code)){const k=Number(e.code.slice(5))-1;Piano.press(k);hitNote(k);flashLane(k);return;}
+  // Carriles: 1-4 o Z-X-C-V (fila inferior, mano izquierda). Vale para notas de boss y piano de locks.
+  const laneKey={Digit1:0,Digit2:1,Digit3:2,Digit4:3,KeyZ:0,KeyX:1,KeyC:2,KeyV:3}[e.code];
+  if(laneKey!==undefined){Piano.press(laneKey);hitNote(laneKey);flashLane(laneKey);return;}
 }
 function onKeyUp(e){keys[e.code]=false;}
 addEventListener('keydown',onKeyDown);

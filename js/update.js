@@ -125,16 +125,16 @@ function update(rdt){
     }
   });
   eProj=eProj.filter(p=>(p.hole?p.t>0:p.life>0));
-  // Notas osu/piano-tiles: vuelan al jugador; si te tocan sin golpearlas duelen y rompen racha
-  for(const n of notes){n.x+=n.vx*dt;n.y+=n.vy*dt;n.life-=dt;n.tick-=dt;
-    if(n.tick<=0){n.tick=0.09;parts.push({x:n.x,y:n.y,vx:(Math.random()-0.5)*60,vy:-40-Math.random()*40,t:0.25,c:NOTE_COLORS[n.key]});}}
+  // Notas piano-tiles: caen por carriles y se golpean sobre la línea al BOMBO; si pasan, duelen y rompen racha
+  const tNow=performance.now()/1000,missLim=(diff().good+60)/1000;
   for(const n of notes){
-    if(Math.hypot(player.x-n.x,(player.y-16)-n.y)<NOTE_HURT_R){
-      n.life=0;hurtPlayer(8);breakNoteCombo();
+    n.x=HW_X[n.key];n.y=HW_HIT-(n.tHit-tNow)*n.spd;
+    if(!n.dead&&tNow-n.tHit>missLim){
+      n.dead=true;hurtPlayer(8);breakNoteCombo();
       floaters.push({x:player.x,y:player.y-60,txt:'MISS ♪'+(n.key+1),t:0.7,c:'#f66'});
     }
   }
-  notes=notes.filter(n=>n.life>0&&n.x>-50&&n.x<WORLD_W+50&&n.y<1100);
+  notes=notes.filter(n=>!n.dead&&tNow-n.t0<8);
   parts.forEach(p=>{
     p.x+=(p.vx||0)*dt;p.y+=(p.vy||0)*dt;
     if(!p.nograv)p.vy=(p.vy||0)+800*dt;
@@ -148,7 +148,7 @@ function update(rdt){
   $('enfill').style.width=player.en+'%';$('echoes').textContent='◈ '+S.echoes;
   const ab2=activeBoss();
   let hint='E:'+Math.round(player.en)+' '+WEAPONS[wi].name+' x:'+Math.round(player.x)+' ['+S.checkpoint+']';
-  if(ab2)hint+=' · 1-4 golpea NOTAS ♪'+(noteCombo>=2?' x'+noteCombo:'')+' · ¡Sin salida!';
+  if(ab2)hint+=' · 1-4/ZXCV al BOMBO sobre su caja'+(noteCombo>=2?' x'+noteCombo:'')+' · ¡Sin salida!';
   else if(warnArena!==null&&warnArena!==undefined)hint+=' · ⚠ ¡La arena se SELLARÁ al entrar! Entra con vida/energía';
   $('hint').textContent=hint;
   markLanes();
