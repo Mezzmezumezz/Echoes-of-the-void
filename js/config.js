@@ -1,13 +1,13 @@
-// js/config.js — datos y constantes (sin lógica). Classic script, funciona con file://
+// js/config.js — datos y constantes (+ helpers de layout). Classic script, funciona con file://
 'use strict';
 const cv=document.getElementById('game'),ctx=cv.getContext('2d');
-const W=960,H=540,WORLD_W=9500,GROUND_TOP=868;
+const W=960,H=540,WORLD_W=16200,GROUND_TOP=868;
 const $=id=>document.getElementById(id);
 
 const WEAPONS=[
- {name:'PulseBlade',base:26,range:70,cd:0.22,box:[60,36],cost:25,esp:55,color:'#33e6ff'},
- {name:'VoidWave',base:20,range:420,cd:0.38,box:[90,24],cost:30,esp:48,color:'#b34dff'},
- {name:'EchoShot',base:14,range:700,cd:0.14,box:[22,12],cost:35,esp:48,color:'#ffd933'}];
+ {name:'PulseBlade',kind:'melee',base:28,range:78,cd:0.26,cost:25,esp:60,color:'#33e6ff',desc:'corto · combo'},
+ {name:'VoidWave',kind:'wave',base:24,range:460,cd:0.48,cost:30,esp:52,color:'#b34dff',desc:'atraviesa · lento'},
+ {name:'EchoShot',kind:'shot',base:8,range:430,cd:0.14,cost:35,esp:45,color:'#ffd933',desc:'ráfaga · rápido'}];
 const EFFECT={
  PulseBlade:{Resonator:1.6,BassTitan:0.7,ChoirWarden:1.0,VoidHarvester:0.9,EchoPrime:1.2,EchoPrimordial:1.4,Slime:1.2},
  VoidWave:{Resonator:0.8,BassTitan:1.6,ChoirWarden:1.0,VoidHarvester:1.5,EchoPrime:1.1,EchoPrimordial:1.3,Slime:1.0},
@@ -21,18 +21,52 @@ const SKILLS=[
  {id:'combo_master',name:'Combo master',cost:220,desc:'GOOD también avanza combo',req:[]},
  {id:'parry_reflect',name:'Parry reflect',cost:200,desc:'Refleja proyectiles (J a tiempo)',req:[]},
  {id:'energy_efficiency',name:'Eficiencia',cost:160,desc:'Especiales -30% coste',req:[]}];
+const _plat=(x,y,w=120,h=12)=>[x,y,w,h];
+const _stair=(x,y,n,dx,dy,w=120)=>Array.from({length:n},(_,i)=>_plat(x+i*dx,y+i*dy,w));
 const BOSS_DEFS=[
- {type:'Resonator',x:2650,hp:380,bpm:[95,130],color:'#ff4073',contact:14,reward:'boss_ricochet',pair:'BassTitan'},
- {type:'BassTitan',x:4050,hp:560,bpm:[88,115],color:'#3366ff',contact:15,reward:'boss_ricochet',pair:'Resonator'},
- {type:'ChoirWarden',x:5450,hp:540,bpm:[102,145],color:'#b333ff',contact:16,reward:'boss_blackhole',pair:'VoidHarvester'},
- {type:'VoidHarvester',x:6650,hp:680,bpm:[90,128],color:'#33cc66',contact:16,reward:'boss_blackhole',pair:'ChoirWarden'},
- {type:'EchoPrime',x:7650,hp:850,bpm:[110,160],color:'#ffe633',contact:18,reward:'boss_teleport',pair:null},
- {type:'EchoPrimordial',x:8850,hp:1100,bpm:[118,168],color:'#cc33cc',contact:20,reward:'boss_clone',pair:null}];
-const ARENAS=[[2200,3000],[3650,4450],[5050,5850],[6250,7050],[7250,8050],[8450,9250]];
-const PLATS=[[520,820,144,12],[880,760,168,12],[1380,720,216,12],[1750,640,144,12],[1600,700,14,192],[2400,780,120,12],[2550,780,120,12],[2850,620,120,12],[3000,550,12,320],[3300,700,192,12],[4100,760,168,12],[4500,680,144,12],[4900,620,216,12],[5600,780,144,12],[6000,700,192,12],[6500,760,168,12]];
-const SHARD_DEFS=[[680,700],[1520,580],[1700,480],[4200,550],[7800,520]];
-const LOCK_DEFS=[{id:'lock_tutorial',x:1100,notes:4,reward:30},{id:'lock_mid',x:3500,notes:6,reward:50},{id:'lock_final',x:7300,notes:6,reward:80}];
-const SLIME_DEFS=[[900,'slime'],[1400,'slime'],[3200,'mite'],[4300,'husk']];
+ {type:'Resonator',x:2650,hp:380,bpm:[95,130],color:'#ff4073',contact:14,reward:'boss_ricochet',pair:'BassTitan',spr:'eye',sw:120,sh:96,hue:0,fps:6},
+ {type:'BassTitan',x:4800,hp:560,bpm:[88,115],color:'#3366ff',contact:15,reward:'boss_ricochet',pair:'Resonator',spr:'mouth',sw:112,sh:112,hue:0,fps:8},
+ {type:'ChoirWarden',x:7000,hp:540,bpm:[102,145],color:'#b333ff',contact:16,reward:'boss_blackhole',pair:'VoidHarvester',spr:'mouthOpen',sw:124,sh:124,hue:190,fps:9},
+ {type:'VoidHarvester',x:9200,hp:680,bpm:[90,128],color:'#33cc66',contact:16,reward:'boss_blackhole',pair:'ChoirWarden',spr:'ufo',sw:160,sh:66,hue:0,fps:10},
+ {type:'EchoPrime',x:11600,hp:850,bpm:[110,160],color:'#ffe633',contact:18,reward:'boss_teleport',pair:null,spr:'eyeVoid',sw:136,sh:108,hue:0,fps:8},
+ {type:'EchoPrimordial',x:14800,hp:1100,bpm:[118,168],color:'#cc33cc',contact:20,reward:'boss_clone',pair:null,spr:'ufo',sw:190,sh:80,hue:280,fps:13}];
+const ARENAS=[[2200,3100],[4300,5300],[6500,7500],[8700,9700],[11100,12100],[14200,15400]];
+// Rutas: escaleras de 50-60px por paso (salto base ~84px), con atajos altos y recovecos.
+const PLATS=[
+ ..._stair(480,820,8,180,-50),_plat(1820,820),_plat(1920,520),_plat(2100,580),
+ ..._stair(2380,800,4,220,-40),
+ ..._stair(3220,820,5,180,-60),_plat(4120,640),
+ ..._stair(4480,800,4,220,-40),
+ ..._stair(5450,810,5,180,-60),_plat(6350,580),
+ ..._stair(6680,800,4,220,-40),
+ ..._stair(7650,810,4,180,-60),_plat(8370,640),_plat(8550,700),_plat(8180,820),
+ ..._stair(8880,800,4,220,-40),
+ ..._stair(9820,820,6,180,-60),_plat(10900,580),
+ ..._stair(11280,800,4,220,-40),
+ ..._stair(12250,810,5,180,-60),_plat(13150,620),
+ ..._stair(13450,810,4,180,-60),_plat(14170,680),
+ ..._stair(14380,800,4,220,-40),
+ _plat(15700,820),_plat(15850,760),_plat(15990,700)
+];
+const SHARD_DEFS=[[1920,478],[1820,778],[3940,544],[6170,534],[8180,778],[10720,484],[12970,534],[15990,664]];
+const LOCK_DEFS=[{id:'lock_tutorial',x:1100,notes:4,reward:30},{id:'lock_mid',x:4120,notes:6,reward:50},{id:'lock_void',x:8000,notes:7,reward:80},{id:'lock_final',x:12790,notes:8,reward:120}];
+const SLIME_DEFS=[[900,'slime'],[1400,'slime'],[3300,'mite'],[3700,'husk'],[5700,'slime'],[6100,'mite'],[7700,'husk'],[8300,'slime'],[10000,'mite'],[10600,'husk'],[12400,'slime'],[13000,'mite']];
+const AREAS=[
+ {name:'Puerta de Umbra',from:0,to:2200,bg:'#0b0b18'},
+ {name:'Sala del Resonador',from:2200,to:3100,bg:'#14101c'},
+ {name:'La Cisterna Hueca',from:3100,to:4300,bg:'#08161a'},
+ {name:'Fosa del Titán',from:4300,to:5300,bg:'#141821'},
+ {name:'Puente Ámbar',from:5300,to:6500,bg:'#1a1408'},
+ {name:'Coro de Ceniza',from:6500,to:7500,bg:'#160a1c'},
+ {name:'Puente Roto',from:7500,to:8700,bg:'#101018'},
+ {name:'Cámara del Vacío',from:8700,to:9700,bg:'#08140e'},
+ {name:'Escalera de Ceniza',from:9700,to:11100,bg:'#1a1208'},
+ {name:'Trono de Eco',from:11100,to:12100,bg:'#1a1a08'},
+ {name:'Nido del Silencio',from:12100,to:13300,bg:'#120a18'},
+ {name:'Descenso Final',from:13300,to:14200,bg:'#180a0a'},
+ {name:'Arena Primordial',from:14200,to:15400,bg:'#1c081c'},
+ {name:'Fin del Vacío',from:15400,to:16200,bg:'#08080f'}
+];
 
 // Dificultad: ventanas de ritmo + daño recibido + HP + echoes
 // Balance v2: ventanas algo más generosas (50ms PERFECT era muy exigente con lag web + 60fps).
@@ -43,6 +77,6 @@ const DIFFS={
 };
 // Checkpoints: inicio + entrada de cada arena
 const CHECKPOINTS=[
- {id:'start',x:180},{id:'cp1',x:2100},{id:'cp2',x:3550},
- {id:'cp3',x:4950},{id:'cp4',x:6150},{id:'cp5',x:7150},{id:'cp6',x:8350}
+ {id:'start',x:180},{id:'cp1',x:2010},{id:'cp2',x:4030},
+ {id:'cp3',x:6260},{id:'cp4',x:8460},{id:'cp5',x:10810},{id:'cp6',x:14080}
 ];

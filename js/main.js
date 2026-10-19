@@ -27,8 +27,8 @@ function bindUI(){
   $('btnWipe').onclick=()=>{localStorage.removeItem(SAVE_KEY);location.reload();};
   document.querySelectorAll('.dsect').forEach(el=>{el.onclick=()=>setDifficulty(el.dataset.d);el.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();setDifficulty(el.dataset.d);}};});
   document.querySelectorAll('.pkey').forEach(el=>{el.onclick=()=>Piano.press(Number(el.dataset.k));});
-  document.querySelectorAll('.lane').forEach(el=>{el.onclick=()=>{const k=Number(el.dataset.k);hitNote(k);flashLane(k);};});
-  $('game').onpointerdown=()=>attack(); // clic = atacar (los overlays tapan el canvas fuera de play)
+  document.querySelectorAll('.lane').forEach(el=>{el.onclick=()=>{const k=Number(el.dataset.k);flashLane(k,hitNote(k,false));};});
+  $('game').onpointerdown=()=>{if(state==='play'&&!Piano.active&&!skillOpen&&!tutHowOpen){attack();hitNote(null,true);}}; // clic = atacar + romper ficha (los overlays tapan el canvas)
 }
 bindUI();markDiff();syncWeapon();initSlide();resetWorld();Rhythm.rebase();
 // ---------- PANTALLA DE TITULO: solo se sale con el slider (initSlide en ui.js) ----------

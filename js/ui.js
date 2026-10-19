@@ -42,14 +42,23 @@ function openSkill(){if(Piano.active||tutHowOpen||state!=='play')return;skillOpe
 function closeSkill(){skillOpen=false;showOverlay('skill',false);}
 function pauseGame(){if(state!=='play'||tutHowOpen)return;state='pause';showOverlay('pause',true);}
 function resumeGame(){if(state!=='pause')return;state='play';showOverlay('pause',false);}
-function syncWeapon(){$('weapon').textContent=WEAPONS[wi].name+' · '+diff().name;}
-function cycleWeapon(d){wi=(wi+d+3)%3;syncWeapon();beep(500+wi*150,0.06,0.12);}
-function flashLane(k){const el=document.querySelector('.lane[data-k="'+k+'"]');if(!el)return;el.classList.add('lit');setTimeout(()=>el.classList.remove('lit'),150);beep(660+k*165,0.06,0.08);}
+function syncWeapon(){
+  const w=WEAPONS[wi],el=$('weapon');
+  if(el){el.textContent=w.name+' · '+w.desc+' · '+diff().name;el.style.color=w.color;}
+  const pips=$('combopips');if(pips){pips.style.setProperty('--wc',w.color);pips.querySelectorAll('i').forEach((x,i)=>x.classList.toggle('on',i<comboIdx));}
+}
+function cycleWeapon(d){
+  wi=(wi+d+WEAPONS.length)%WEAPONS.length;atkCd=Math.min(atkCd,0.06);swingT=0;switchT=0.25;
+  syncWeapon();
+  if(player)floaters.push({x:player.x,y:player.y-64,txt:WEAPONS[wi].name+' · '+WEAPONS[wi].desc,t:0.8,c:WEAPONS[wi].color});
+  beep(500+wi*150,0.06,0.12);
+}
+function flashLane(k,silent){const el=document.querySelector('.lane[data-k="'+k+'"]');if(!el)return;el.classList.add('lit');setTimeout(()=>el.classList.remove('lit'),150);if(!silent)beep(660+k*165,0.06,0.08);}
 function markLanes(){
   const ab=activeBoss&&state==='play'?activeBoss():null;
   const box=$('lanes');if(box)box.classList.toggle('on',!!ab);
   if(!ab)return;
-  const now=performance.now()/1000,win=(diff().good+60)/1000;
+  const now=performance.now()/1000,win=noteLimit();
   for(let k=0;k<4;k++){
     const el=document.querySelector('.lane[data-k="'+k+'"]');if(!el)continue;
     let near=false;
@@ -116,14 +125,24 @@ function onKeyDown(e){
   if(e.code==='KeyH'){S.showDmg=(S.showDmg===false);save();beep(700,0.08,0.12);
     if(player)floaters.push({x:player.x,y:player.y-70,txt:S.showDmg?'Números: ON':'Números: OFF',t:1,c:'#fff'});
     return;}
-  if(e.code==='KeyQ'){if(state==='play'&&!skillOpen)cycleWeapon(1);return;}
-  // FIX: J interactúa O ataca, no ambas
-  if(e.code==='KeyJ'){const used=tryInteract();if(!used)attack();return;}
+  if(e.code==='KeyQ'){if(state==='play'&&!skillOpen&&!Piano.active)cycleWeapon(1);return;}
+  // J: interactúa O ataca+rompe ficha (mantener J = auto-ataque; solo el toque rompe fichas)
+  if(e.code==='KeyJ'){const used=tryInteract();if(used)return;if(Piano.active||skillOpen)return;attackHeld=true;attack();hitNote(null,true);return;}
   if(e.code==='KeyE'||e.code==='KeyK'){special();return;}
-  // Carriles: 1-4 o Z-X-C-V (fila inferior, mano izquierda). Vale para notas de boss y piano de locks.
+  // Carriles: 1-4 o Z-X-C-V (opcional). Sin penalización si no hay ficha.
   const laneKey={Digit1:0,Digit2:1,Digit3:2,Digit4:3,KeyZ:0,KeyX:1,KeyC:2,KeyV:3}[e.code];
-  if(laneKey!==undefined){Piano.press(laneKey);hitNote(laneKey);flashLane(laneKey);return;}
+  if(laneKey!==undefined){
+    if(Piano.active){Piano.press(laneKey);return;}
+    if(skillOpen)return;
+    const hit=hitNote(laneKey,false);flashLane(laneKey,hit);return;
+  }
 }
-function onKeyUp(e){keys[e.code]=false;}
+function onKeyUp(e){keys[e.code]=false;if(e.code==='KeyJ')attackHeld=false;}
 addEventListener('keydown',onKeyDown);
 addEventListener('keyup',onKeyUp);
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false;attackHeld=false;});
+const cvEl=document.getElementById('game');
+if(cvEl)cvEl.addEventListener('wheel',e=>{
+  if(state!=='play'||skillOpen||Piano.active||tutHowOpen)return;
+  e.preventDefault();cycleWeapon(e.deltaY>0?1:-1);
+},{passive:false});

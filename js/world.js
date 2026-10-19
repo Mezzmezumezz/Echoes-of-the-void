@@ -7,22 +7,27 @@ let lastKickSeen=0,noteCombo=0,noteBest=0;
 let doors=[];
 let shards=[],locks=[];
 let atkCd=0,comboIdx=0,comboT=0,dashT=0,dashCd=0,iframes=0,coyote=0,jbuf=0,jumps=0,deadT=0;
+let attackHeld=false,swingT=0,swingKind='',switchT=0,noteVis=0;
+let camShakeT=0,camShake=0;
+let currentArea=-1,areaT=0;
 let wi=0;
 let patId=0;
 let _warnArena=-1;
 
 function maxHP(){return Math.round((100+(S.skills.hp_1?20:0)+(S.skills.hp_2?30:0))*diff().hpMult);}
 function checkpointX(id){const c=CHECKPOINTS.find(c=>c.id===id);return c?c.x:180;}
-function newPlayer(){const sx=checkpointX(S.checkpoint);return{x:sx,y:700,vx:0,vy:0,w:24,h:32,hp:maxHP(),en:100,face:1,onFloor:false,wallDir:0};}
+function newPlayer(){const sx=checkpointX(S.checkpoint);return{x:sx,y:700,vx:0,vy:0,w:24,h:32,hp:maxHP(),en:100,face:1,onFloor:false,wallDir:0,hurtT:0,hurtDir:1};}
 function resetWorld(){
   player=newPlayer();slimes=[];bosses=[];pProj=[];eProj=[];parts=[];floaters=[];notes=[];lastKickSeen=Rhythm.kickCount;noteCombo=0;delayed=[];_warnArena=-1;
-  doors=[];shards=[];locks=[];wi=0;atkCd=0;comboIdx=0;comboT=0;dashT=0;dashCd=0;iframes=0;deadT=0;
+  doors=[];shards=[];locks=[];wi=0;atkCd=0;comboIdx=0;comboT=0;dashT=0;dashCd=0;iframes=0;deadT=0;camShakeT=0;camShake=0;currentArea=-1;areaT=0;
+  attackHeld=false;swingT=0;swingKind='';switchT=0;noteVis=0;
   ARENAS.forEach(([a,b])=>{doors.push({x:a,open:true});doors.push({x:b,open:true});});
   SHARD_DEFS.forEach(([x,y],i)=>{if(!S.shards['sh'+i])shards.push({id:'sh'+i,x,y,t:Math.random()*6});});
   LOCK_DEFS.forEach(L=>{if(!S.locks[L.id])locks.push(Object.assign({done:false},L,{y:780}));});
   SLIME_DEFS.forEach(([x])=>slimes.push({x,y:700,vx:0,vy:0,w:26,h:24,hp:70,dir:1,home:x,t:0,stun:0,dr:0,contactCd:0,squash:0}));
-  BOSS_DEFS.forEach((d,i)=>{if(!S.bosses[d.type])bosses.push(Object.assign({},d,{y:780,vx:0,vy:0,w:52,h:84,maxhp:d.hp,st:'IDLE',t:0.5,tele:0,phase2:false,contactCd:0,stun:0,stunDr:0,flash:0,idx:i,spiral:Math.random()*6.28,locked:false}));});
+  BOSS_DEFS.forEach((d,i)=>{if(!S.bosses[d.type])bosses.push(Object.assign({},d,{y:GROUND_TOP,vx:0,vy:0,w:52,h:84,maxhp:d.hp,st:'IDLE',t:0.5,tele:0,phase2:false,contactCd:0,stun:0,stunDr:0,flash:0,idx:i,spiral:Math.random()*6.28,locked:false}));});
   updateDoorState();
+  if(typeof syncWeapon==='function')syncWeapon();
 }
 // Boss en lock-in SELLADO: solo el boss con locked=true ataca.
 // Se activa al pisar su arena y no se abre hasta matarlo (sin escape).
@@ -107,7 +112,7 @@ function rectHit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
 function clampBoss(b){
   const a=ARENAS[b.idx];if(!a)return;
   b.x=Math.max(a[0]+40,Math.min(a[1]-40,b.x));
-  b.y=780;b.vx=0;b.vy=0;
+  b.y=GROUND_TOP;b.vx=0;b.vy=0;
 }
 function moveBody(e,dt){
   const Ss=solids();

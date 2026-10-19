@@ -1,0 +1,10 @@
+Alien Boss Set (CC0)
+Source: https://opengameart.org/content/alien-boss-set
+
+eye-green.png  <- EyeBoss_1.png
+eye-void.png   <- EyeBoss_3.png
+mouth-red.png  <- MouthBoss.png
+mouth-open.png <- MouthBoss_Opening.png
+ufo-green.png  <- InfUFO_1.png
+
+CC0: libre para usar, modificar y distribuir.

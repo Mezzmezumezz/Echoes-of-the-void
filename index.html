@@ -15,6 +15,7 @@
     <div id="echoes">◈ 0</div>
     <div id="weapon">PulseBlade</div>
     <div id="difflabel">Dificultad: Normal</div>
+    <div id="combopips" aria-hidden="true"><i></i><i></i><i></i></div>
     <div id="rhythm"><div id="pulse"></div><div id="bpmlabel">120 BPM</div><div id="timelabel"></div></div>
     <canvas id="minimap" width="240" height="28"></canvas>
     <div id="hint"></div>
@@ -51,8 +52,8 @@
     <button id="btnSkillMenu" class="btn-ghost">Árbol de habilidades (T)</button>
     <button id="btnHow" class="btn-ghost">Cómo jugar</button>
     <button id="btnWipe" class="btn-ghost">Borrar partida</button>
-    <p class="controls">A/D mover · Espacio saltar · Shift dash · J/clic atacar (parry al BOMBO) · Q arma · E/K especial · T skills · H números · Esc pausa · 1-4 o Z-X-C-V notas</p>
-    <p class="credit">Sprites: Kenney Pixel Platformer 18×18 (CC0: <a href="https://kenney.nl/assets/pixel-platformer" target="_blank">kenney.nl</a>, en carpeta assets/ + License.txt). Con fallback procedural: funciona offline con doble clic.</p>
+    <p class="controls">A/D mover · Espacio saltar · Shift dash · J atacar (mantén = auto, y rompe la ficha ♪ más cercana) · Q/rueda arma · E/K especial · T skills · H números · Esc pausa · 1-4 o Z-X-C-V ficha concreta</p>
+    <p class="credit">Sprites: Kenney Pixel Platformer 18×18 (CC0: <a href="https://kenney.nl/assets/pixel-platformer" target="_blank">kenney.nl</a>) y Alien Boss Set (CC0: <a href="https://opengameart.org/content/alien-boss-set" target="_blank">opengameart.org</a>), en assets/ + License.txt. Con fallback procedural: funciona offline con doble clic.</p>
     </div>
   </div>
 
@@ -79,9 +80,9 @@
     <h2>Cómo jugar (30 segundos)</h2>
     <div id="howGrid">
       <div class="hcard"><b>1 · Muévete</b><br>A/D o ←/→ para andar<br>Espacio/W para saltar</div>
-      <div class="hcard"><b>2 · Ataca en el BOMBO</b><br>J o clic cuando el cuadro se ponga ROJO<br>PERFECT x1.5 / GOOD x1.2 · J también hace PARRY</div>
-      <div class="hcard"><b>3 · Armas y dash</b><br>Q tap = cambiar arma<br>Shift = dash · E = especial · Tus balas rompen balas</div>
-      <div class="hcard"><b>4 · Boss sellado + notas</b><br>Entrar SELLA la arena (sin salida).<br>Notas ♪ con 1-4 o Z-X-C-V: ¡racha xN sube daño!</div>
+      <div class="hcard"><b>2 · Ataca en el BOMBO</b><br>J o clic cuando el cuadro se ponga ROJO<br>Mantén J = ataque seguido · PERFECT x1.5 / GOOD x1.2 · J también hace PARRY</div>
+      <div class="hcard"><b>3 · Armas y dash</b><br>Q o rueda = cambiar arma (cada una se siente distinta)<br>Shift = dash · E/K = especial · Tus balas rompen balas</div>
+      <div class="hcard"><b>4 · Boss sellado + notas</b><br>Entrar SELLA la arena (sin salida).<br>Fichas ♪: J rompe la más cercana · 1-4/ZXCV una concreta. Fallar solo drena energía.</div>
       <div class="hcard"><b>5 · Números</b><br>-N blanco = tu daño · -N amarillo = fuerte+stun<br>23ms = tu precisión · xN = racha · H oculta daño</div>
       <div class="hcard"><b>6 · Bullet-hell escala</b><br>Cada boss pone su BPM y más balas.<br>Resonator tutorial → Primordial infierno.</div>
     </div>

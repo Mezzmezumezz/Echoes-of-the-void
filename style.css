@@ -11,6 +11,9 @@ body{background:#0b0b12;color:#e8e8f0;font-family:Consolas,monospace;display:fle
 #echoes{position:absolute;top:50px;left:10px;color:#ffd933;font-weight:bold;text-shadow:1px 1px #000}
 #weapon{position:absolute;top:72px;left:10px;color:#9df;font-size:13px}
 #difflabel{position:absolute;top:92px;left:10px;color:#ffd933;font-size:12px;text-shadow:1px 1px #000}
+#combopips{position:absolute;top:112px;left:10px;display:flex;gap:5px}
+#combopips i{width:9px;height:9px;border:1px solid #555;background:#111;display:block}
+#combopips i.on{background:var(--wc,#ffd933);border-color:var(--wc,#ffd933);box-shadow:0 0 6px var(--wc,#ffd933)}
 #rhythm{position:absolute;top:10px;right:260px;width:150px;text-align:center;background:#000a;border:1px solid #555;padding:4px}
 #pulse{width:26px;height:26px;margin:0 auto;background:#333;border:2px solid #888}
 #pulse.beat{background:#777;box-shadow:0 0 6px #777}
@@ -61,9 +64,9 @@ button:hover{background:#33e6ff;color:#000}
 .dsect.sel{outline:4px solid #ffd933;transform:scale(1.05)}
 #howGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;max-width:560px;width:100%}
 .hcard{background:#1a1a28;border:2px solid #ffd933;padding:10px;font-size:13px;line-height:1.5}
-#lanes{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);display:none;gap:8px}
-#lanes.on{display:flex}
-.lane{width:44px;height:44px;font-size:18px;border:3px solid #888;background:#111c;opacity:.55;pointer-events:auto;flex-direction:column;line-height:1.1}
+#lanes{position:absolute;bottom:76px;left:50%;transform:translateX(-50%);display:flex;gap:8px;opacity:0;pointer-events:none;transition:opacity .22s ease}
+#lanes.on{opacity:1;pointer-events:auto}
+.lane{width:44px;height:44px;font-size:18px;border:3px solid #888;background:#111c;opacity:.55;pointer-events:auto;flex-direction:column;line-height:1.1;transition:opacity .12s,transform .12s,background .12s}
 .lane small{font-size:10px;color:#999;font-weight:normal}
 .lane[data-k="0"]{border-color:#33e6ff}.lane[data-k="1"]{border-color:#b34dff}.lane[data-k="2"]{border-color:#ffd933}.lane[data-k="3"]{border-color:#33ff99}
 .lane.near{opacity:1;transform:scale(1.12);box-shadow:0 0 10px #fff}

@@ -21,8 +21,10 @@ function update(rdt){
   if(dir!==0)player.face=dir;
   const onF=player.onFloor;
   const acc=onF?2200:1400,fri=onF?2400:600;
+  player.hurtT=Math.max(0,(player.hurtT||0)-dt);
   if(dashT<=0){
-    if(dir!==0)player.vx+=Math.sign(dir*300-player.vx)*Math.min(Math.abs(dir*300-player.vx),acc*dt);
+    if(player.hurtT>0){player.vx*=Math.max(0,1-4*dt);}
+    else if(dir!==0)player.vx+=Math.sign(dir*300-player.vx)*Math.min(Math.abs(dir*300-player.vx),acc*dt);
     else player.vx+=Math.sign(0-player.vx)*Math.min(Math.abs(player.vx),fri*dt);
   }
   let g=1600;if(player.vy>0)g*=1.35;
@@ -37,13 +39,15 @@ function update(rdt){
   player.vy+=g*dt;if(player.vy>900)player.vy=900;
   if(onF){coyote=0.15;jumps=0;}else coyote-=dt;
   comboT=Math.max(0,comboT-dt);jbuf-=dt;
-  if(jbuf>0){
-    if(coyote>0){player.vy=-460;jbuf=0;coyote=0;beep(600,0.06,0.1);}
-    else if(player.wallDir!==0&&S.skills.wall_jump){player.vy=-400;player.vx=-player.wallDir*340;player.face=-player.wallDir;jbuf=0;beep(600,0.06,0.1);}
-    else if(S.skills.double_jump&&jumps<1){player.vy=-460*0.92;jumps++;jbuf=0;beep(750,0.06,0.1);}
+  if(comboT<=0&&comboIdx!==0){comboIdx=0;syncWeapon();}
+  if(jbuf>0&&player.hurtT<=0){
+    if(coyote>0){player.vy=-520;jbuf=0;coyote=0;beep(600,0.06,0.1);}
+    else if(player.wallDir!==0&&S.skills.wall_jump){player.vy=-440;player.vx=-player.wallDir*340;player.face=-player.wallDir;jbuf=0;beep(600,0.06,0.1);}
+    else if(S.skills.double_jump&&jumps<1){player.vy=-520*0.92;jumps++;jbuf=0;beep(750,0.06,0.1);}
   }
   if(!(keys['Space']||keys['KeyW'])&&player.vy<-150)player.vy*=(1-6*dt);
-  dashCd-=dt;dashT-=dt;iframes-=dt;atkCd-=dt;
+  dashCd-=dt;dashT-=dt;iframes-=dt;atkCd-=dt;swingT=Math.max(0,swingT-dt);switchT=Math.max(0,switchT-dt);
+  if(attackHeld&&keys['KeyJ']&&atkCd<=0)attack(true); // mantener J = auto-ataque (no rompe fichas)
   if(keys['ShiftLeft']||keys['ShiftRight'])dash();
   if(dashT>0){player.vx=player.face*680;player.vy=0;}
   else if(dashT>-0.05&&dashT<=0){player.vx*=0.55;dashT=-1;}
@@ -65,7 +69,7 @@ function update(rdt){
       }else{s.vx=s.dir*70;if(Math.abs(s.x-s.home)>160)s.dir*=-1;}
     }
     s.vy+=1100*dt;moveBody(s,dt);
-    if(Math.abs(s.x-player.x)<28&&Math.abs(s.y-player.y)<40&&s.contactCd<=0){s.contactCd=0.8;hurtPlayer(12);}
+    if(Math.abs(s.x-player.x)<28&&Math.abs(s.y-player.y)<40&&s.contactCd<=0){s.contactCd=0.8;hurtPlayer(12,s.x);}
   });
   slimes=slimes.filter(s=>!s.dead);
   bosses.forEach(b=>{if(b.dead)return;
@@ -77,13 +81,16 @@ function update(rdt){
     if(b.st==='STUNNED'){if(b.t<=0){b.st='IDLE';b.t=0.5;}return;}
     if(b.st==='IDLE'&&b.t<=0){b.st='TELE';b.t=0.35;b.flash=0.35;choosePattern(b,dx,adx);}
     else if(b.st==='TELE'&&b.t<=0){firePattern(b,dx);b.st='IDLE';b.t=b.phase2?0.85:1.15;}
-    if(adx<42&&Math.abs(b.y-player.y)<80&&b.contactCd<=0){b.contactCd=0.9;hurtPlayer(b.contact);}
+    if(adx<42&&Math.abs(b.y-player.y)<80&&b.contactCd<=0){b.contactCd=0.9;hurtPlayer(b.contact,b.x);}
   });
   bosses=bosses.filter(b=>!b.dead);
-  pProj.forEach(p=>{p.x+=p.vx*dt;p.life-=dt;
-    slimes.forEach(s=>{if(!s.dead&&Math.abs(s.x-p.x)<20&&Math.abs(s.y-16-p.y)<24){hurtSlime(s,p.dmg,Math.sign(p.vx));p.life=0;}});
-    bosses.forEach(b=>{if(!b.dead&&Math.abs(b.x-p.x)<34&&Math.abs(b.y-40-p.y)<60){
-      dealBossDmg(b,Math.round(p.dmg*(EFFECT[WEAPONS[wi].name][b.type]||1)));p.life=0;}});
+  pProj.forEach(p=>{p.x+=p.vx*dt;if(p.vy)p.y+=p.vy*dt;p.life-=dt;
+    const fresh=o=>!p.hits||!p.hits.includes(o);
+    slimes.forEach(s=>{if(!s.dead&&fresh(s)&&Math.abs(s.x-p.x)<20&&Math.abs(s.y-16-p.y)<24){
+      hurtSlime(s,p.dmg,Math.sign(p.vx)||1);if(p.hits)p.hits.push(s);if(!p.pierce)p.life=0;}});
+    bosses.forEach(b=>{if(!b.dead&&fresh(b)&&Math.abs(b.x-p.x)<34&&Math.abs(b.y-40-p.y)<60){
+      const eff=(EFFECT[p.weapon]&&EFFECT[p.weapon][b.type])||1;
+      dealBossDmg(b,Math.round(p.dmg*eff));if(p.hits)p.hits.push(b);if(!p.pierce)p.life=0;}});
   });
   // Tus disparos también hacen parry a distancia: destruyen balas enemigas al chocar
   for(const pp of pProj){
@@ -104,7 +111,7 @@ function update(rdt){
       if(d<160&&d>1){const mx=-dx/d*280*dt,my=-dy/d*280*dt,Ss=solids();
         if(!Ss.some(s=>rectHit({x:player.x-player.w/2+mx,y:player.y-player.h,w:player.w,h:player.h},s)))player.x+=mx;
         if(!Ss.some(s=>rectHit({x:player.x-player.w/2,y:player.y-player.h+my,w:player.w,h:player.h},s)))player.y+=my;
-        p.tick=(p.tick||0)-dt;if(p.tick<=0){p.tick=0.5;hurtPlayer(6);}}
+        p.tick=(p.tick||0)-dt;if(p.tick<=0){p.tick=0.5;hurtPlayer(6,p.x);}}
       return;}
     if(p.bounce!==undefined){
       p.x+=p.vx*dt;p.y+=p.vy*dt;p.leg-=Math.hypot(p.vx,p.vy)*dt;
@@ -121,20 +128,23 @@ function update(rdt){
           burst(player.x,player.y-30,'#33e6ff',8,360);
         }
         beep(1200,0.1,0.2);
-      }else{p.life=0;hurtPlayer(p.dmg);}
+      }else{p.life=0;hurtPlayer(p.dmg,p.x);}
     }
   });
   eProj=eProj.filter(p=>(p.hole?p.t>0:p.life>0));
-  // Notas piano-tiles: caen por carriles y se golpean sobre la línea al BOMBO; si pasan, duelen y rompen racha
-  const tNow=performance.now()/1000,missLim=(diff().good+60)/1000;
+  // Notas piano-tiles: caen por carriles; si pasan no quitan vida, drenan energía y rompen racha
+  const tNow=performance.now()/1000,missLim=noteLimit();
   for(const n of notes){
     n.x=HW_X[n.key];n.y=HW_HIT-(n.tHit-tNow)*n.spd;
     if(!n.dead&&tNow-n.tHit>missLim){
-      n.dead=true;hurtPlayer(8);breakNoteCombo();
-      floaters.push({x:player.x,y:player.y-60,txt:'MISS ♪'+(n.key+1),t:0.7,c:'#f66'});
+      n.dead=true;player.en=Math.max(0,player.en-4);breakNoteCombo();
+      beep(180,0.08,0.1);
+      floaters.push({x:HW_X[n.key],y:HW_HIT-18,txt:'MISS FICHA '+(n.key+1),t:0.7,c:'#f66'});
+      burst(HW_X[n.key],HW_HIT,'#f66',6,200);
     }
   }
   notes=notes.filter(n=>!n.dead&&tNow-n.t0<8);
+  noteVis=Math.max(0,Math.min(1,noteVis+(activeBoss()?5*dt:-4*dt)));
   parts.forEach(p=>{
     p.x+=(p.vx||0)*dt;p.y+=(p.vy||0)*dt;
     if(!p.nograv)p.vy=(p.vy||0)+800*dt;
@@ -142,13 +152,17 @@ function update(rdt){
     p.t-=dt;
   });
   parts=parts.filter(p=>p.t>0);floaters.forEach(f=>{f.y-=40*dt;f.t-=dt;});floaters=floaters.filter(f=>f.t>0);
-  camX=Math.max(0,Math.min(WORLD_W-W,player.x-W/2));camY=Math.max(180,Math.min(360,player.y-300));
+  camShakeT=Math.max(0,camShakeT-rdt);if(camShakeT<=0)camShake=0;
+  camX=Math.max(0,Math.min(WORLD_W-W,player.x-W/2));camY=Math.max(-120,Math.min(360,player.y-300));
+  const ai=AREAS.findIndex(a=>player.x>=a.from&&player.x<a.to);
+  areaT=Math.max(0,areaT-rdt);
+  if(ai>=0&&ai!==currentArea){currentArea=ai;areaT=2.6;}
   $('bpmlabel').textContent=Rhythm.bpm+' BPM · BOMBO '+Rhythm.kickCount;
   $('hpfill').style.width=(100*player.hp/maxHP())+'%';$('hptext').textContent=Math.ceil(player.hp)+' / '+maxHP();
   $('enfill').style.width=player.en+'%';$('echoes').textContent='◈ '+S.echoes;
   const ab2=activeBoss();
   let hint='E:'+Math.round(player.en)+' '+WEAPONS[wi].name+' x:'+Math.round(player.x)+' ['+S.checkpoint+']';
-  if(ab2)hint+=' · 1-4/ZXCV al BOMBO sobre su caja'+(noteCombo>=2?' x'+noteCombo:'')+' · ¡Sin salida!';
+  if(ab2)hint+=' · J ataca y rompe ficha'+(noteCombo>=2?' x'+noteCombo:'')+' · 1-4/ZXCV opcional';
   else if(warnArena!==null&&warnArena!==undefined)hint+=' · ⚠ ¡La arena se SELLARÁ al entrar! Entra con vida/energía';
   $('hint').textContent=hint;
   markLanes();
