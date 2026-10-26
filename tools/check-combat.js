@@ -129,6 +129,23 @@ for(const def of BOSS_DEFS){
   for(let i=0;i<180;i++){advance(1000/60);update(1/60);draw();player.hp=999999;if(b.hp<350)b.hp=400;}
   assert(b.sigName&&b.sigName.length>2,'firma sin nombre: '+def.type);
 
+  // Fase aérea: sube, es inmune, bombardea sin fichas y vuelve al suelo.
+  b.st='IDLE';b.t=0;b.pat='AIR';b.pid=0;b.phase2=false;
+  firePattern(b,player.x-b.x);
+  assert(b.st==='AIR','no arranca la fase aérea: '+def.type);
+  const hpAir=b.hp;
+  for(let i=0;i<45;i++){advance(1000/60);update(1/60);player.hp=999999;}
+  assert(b.y<GROUND_TOP-120,'el boss no sube: '+def.type);
+  assert(notes.length===0,'hay fichas durante la fase aérea: '+def.type);
+  dealBossDmg(b,50);
+  assert(b.hp===hpAir,'el boss aéreo recibe daño: '+def.type);
+  const eAir=eProj.length;
+  for(let i=0;i<100;i++){advance(1000/60);update(1/60);player.hp=999999;}
+  assert(eProj.length>0||eAir>0,'la fase aérea no dispara: '+def.type);
+  let landed=false;
+  for(let i=0;i<180;i++){advance(1000/60);update(1/60);player.hp=999999;if(b.st!=='AIR'){landed=true;break;}}
+  assert(landed&&b.st==='IDLE'&&b.y===GROUND_TOP,'el boss no vuelve al suelo: '+def.type);
+
   // TTK pasivo: mantener J desde lejos, sin esquivar ni tocar fichas.
   resetWorld();state='play';
   const b2=bosses.find(x=>x.type===def.type),a2=ARENAS[b2.idx];
@@ -136,14 +153,14 @@ for(const def of BOSS_DEFS){
   wi=2;tryLockBosses();
   keys['KeyJ']=true;attackHeld=true;
   let ttk=0;
-  for(let i=0;i<1500;i++){
+  for(let i=0;i<2100;i++){
     advance(1000/60);update(1/60);
     iframes=999;player.hp=999999;
     player.face=Math.sign(b2.x-player.x)||1;
     if(b2.dead){ttk=i/60;break;}
   }
   keys['KeyJ']=false;attackHeld=false;iframes=0;
-  assert(ttk>0,'el disparo rápido no mata a '+def.type+' en 25s (¿boss roto?)');
+  assert(ttk>0,'el disparo rápido no mata a '+def.type+' en 35s (¿boss roto?)');
   killTimes[def.type]=ttk.toFixed(1)+'s';
   assert(ttk>3.5,'demasiado fácil: '+def.type+' muere en '+ttk.toFixed(1)+'s con disparo mantenido');
 }

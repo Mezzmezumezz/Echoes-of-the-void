@@ -15,6 +15,16 @@ function shockRing(x,y,color,maxR){
 }
 function dealBossDmg(b,dmg){
   if(b.dead)return;
+  // Fase aérea: fuera de alcance. Los ataques normales no lo bajan; toca esquivar.
+  if(b.st==='AIR'){
+    if(!b.airHit){
+      b.airHit=true;
+      floaters.push({x:b.x,y:b.y-b.h-12,txt:'ESCUDO · ESQUIVA',t:0.9,c:'#33e6ff'});
+      shockRing(b.x,b.y-40,'#33e6ff',90);beep(900,0.06,0.1);
+    }
+    burst(b.x,b.y-40,'#33e6ff',2,120);
+    return;
+  }
   // El stun premia: boss aturdido recibe +25%. El eco final suma otro +25%.
   if(b.st==='STUNNED')dmg=Math.round(dmg*1.25);
   if(S.skills.boss_clone)dmg=Math.round(dmg*1.25);
@@ -265,7 +275,7 @@ function hitNote(key,auto){
 // Barrage rítmico por boss: cada tipo favorece sus modos (personalidad).
 // Resonator=RING/FAN simple · Bass=RAIN pesada · Choir=SPIRAL/FAN · Void=FAN/RAIN · Prime=SPIRAL rápido · Primordial=todo denso.
 function fireKickBarrage(b){
-  if(b.dead||b.st==='STUNNED')return;
+  if(b.dead||b.st==='STUNNED'||b.st==='AIR')return; // en el aire no hay fichas: solo esquiva
   const dx=player.x-b.x,dy=(player.y-16)-(b.y-50);
   const baseAng=Math.atan2(dy,dx);
   const hard=S.difficulty==='hard',easy=S.difficulty==='easy';
@@ -349,6 +359,9 @@ function weightedPick(opts,exclude){
 }
 function choosePattern(b,dx,adx){
   b.atkCount=(b.atkCount||0)+1;
+  // Patrón aéreo: cada 6 ataques (5 en fase 2) sube fuera de alcance y bombardea.
+  const airEvery=b.phase2?5:6;
+  if(b.atkCount%airEvery===0){b.pat='AIR';return;}
   // Firma única cada N ataques (en fase 2 cae un ataque antes).
   const every=Math.max(2,(b.sigEvery||4)-(b.phase2?1:0));
   if(b.atkCount%every===0){b.pat='SIG';return;}
@@ -363,6 +376,86 @@ function choosePattern(b,dx,adx){
   }
   b.pat=weightedPick(opts,b.lastPat);
   b.lastPat=b.pat;
+}
+// ---------- FASE AÉREA ----------
+function startAirBoss(b){
+  const a=ARENAS[b.idx]||[0,WORLD_W];
+  clearDelayedFor(b.pid);b.pid=++patId;
+  b.st='AIR';b.airT=0;b.airAtk=0;b.airHit=false;
+  b.airMax=b.phase2?2.3:2.5;
+  b.airY=GROUND_TOP-300;
+  const side=Math.random()<0.5?-1:1;
+  b.airX=Math.max(a[0]+90,Math.min(a[1]-90,player.x+side*180));
+  b.flash=0.18;b.evadeT=0;
+  // Sin fichas mientras está fuera de alcance: la ventana es de esquiva, no de DPS.
+  notes=[];noteCombo=0;
+  showBanner('AIRE','¡FUERA DE ALCANCE!','#33e6ff',1.4);
+  screenFlash('#33e6ff',0.10);
+  beep(520,0.2,0.14,'sine');beep(780,0.3,0.1,'sine');
+}
+function updateAirBoss(b,dt){
+  b.airT+=dt;
+  const a=ARENAS[b.idx]||[0,WORLD_W];
+  b.x+=(b.airX-b.x)*Math.min(1,dt*7);
+  b.x=Math.max(a[0]+50,Math.min(a[1]-50,b.x));
+  const rise=0.5,fall=0.55,fallStart=Math.max(rise+0.2,(b.airMax||2.5)-fall);
+  if(b.airT<rise){const k=b.airT/rise;b.y=GROUND_TOP+(b.airY-GROUND_TOP)*(1-Math.pow(1-k,3));}
+  else if(b.airT<fallStart)b.y=b.airY;
+  else{const k=Math.min(1,(b.airT-fallStart)/fall);b.y=b.airY+(GROUND_TOP-b.airY)*k*k;}
+  if(b.airAtk===0&&b.airT>=0.65){b.airAtk=1;fireAirAttack(b,0);}
+  if(b.airAtk===1&&b.airT>=1.35){b.airAtk=2;fireAirAttack(b,1);}
+  if(b.airT>=(b.airMax||2.5)){
+    b.st='IDLE';b.t=b.phase2?0.45:0.7;b.y=GROUND_TOP;b.airT=0;b.airAtk=0;b.airHit=false;
+    b.flash=0.18;b.contactCd=Math.max(b.contactCd||0,0.5);
+    shockRing(b.x,b.y-20,b.color,150);burst(b.x,b.y-20,b.color,12,260);camShake=Math.max(camShake,3);
+    beep(160,0.14,0.16,'square');
+  }
+}
+// Cada jefe tiene su firma aérea: nieve de escombros, orbes, fan o anillo.
+function fireAirAttack(b,k){
+  const sx=b.x,sy=b.y-40,col=b.color||'#f66',ph=(b.phase2?1.22:1)*(1+b.idx*0.035);
+  const easy=S.difficulty==='easy',hard=S.difficulty==='hard';
+  const spd=(easy?260:hard?400:340)*(b.phase2?1.08:1);
+  const dmg=n=>Math.round(n*ph*(easy?0.8:hard?1.12:1));
+  const aim=Math.atan2((player.y-16)-sy,player.x-sx);
+  const shot=(a,s,w,d,life)=>{eProj.push({x:sx,y:sy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,w:w||12,h:w||12,life:life||2.4,dmg:d,hell:true,col});};
+  if(k===0){
+    if(b.type==='BassTitan'||b.type==='EchoPrimordial'){
+      // LLUVIA: escombros alrededor del jugador; moverse deja un hueco.
+      const n=b.phase2?7:5;
+      for(let i=0;i<n;i++)eProj.push({x:player.x+(i-(n-1)/2)*72,y:sy-150,vx:0,vy:390,w:15,h:15,life:2.4,dmg:dmg(10),hell:true,col});
+      shockRing(sx,sy,col,170);beep(90,0.3,0.22,'sawtooth');
+    }else if(b.type==='ChoirWarden'||b.type==='VoidHarvester'){
+      // CORO: orbes que caen y estallan en abanico dirigido.
+      const n=b.phase2?4:3;
+      for(let i=0;i<n;i++)eProj.push({x:player.x+(i-(n-1)/2)*130,y:sy-150,vx:0,vy:190,w:18,h:18,life:2.8,dmg:dmg(8),hell:true,col,fuse:0.7,split:b.phase2?5:4});
+      beep(240,0.25,0.18,'sine');
+    }else{
+      // ABANICO aéreo apuntado al jugador.
+      const n=b.phase2?5:4;
+      for(let i=0;i<n;i++)shot(aim+(i-(n-1)/2)*0.18,spd,13,dmg(10));
+      beep(300,0.12,0.16,'sawtooth');
+    }
+  }else{
+    if(b.type==='VoidHarvester'){
+      // HORIZONTE: agujero bajo el jugador + anillo desde el aire.
+      const tx=player.x,ty=Math.max(GROUND_TOP-250,Math.min(GROUND_TOP-70,player.y-100));
+      shockRing(tx,ty,'#33cc66',190);
+      eProj.push({x:tx,y:ty,hole:true,t:b.phase2?3:2.4});
+      for(let i=0;i<8;i++)shot(i/8*6.283,spd*0.85,11,dmg(8));
+      beep(70,0.5,0.22,'sine');
+    }else if(b.type==='EchoPrime'){
+      // CRUZ: abanico rápido y estrecho.
+      const n=b.phase2?7:5;
+      for(let i=0;i<n;i++)shot(aim+(i-(n-1)/2)*0.13,spd*1.25,12,dmg(10));
+      beep(1200,0.08,0.12);
+    }else{
+      // ANILLO radial desde el aire.
+      const n=(b.phase2?14:10)+(b.idx>=3?2:0),off=Math.random()*6.283;
+      for(let i=0;i<n;i++)shot(off+i/n*6.283,spd*0.9,12,dmg(8));
+      beep(160,0.2,0.18,'sawtooth');
+    }
+  }
 }
 function cloneSlime(b,ox,dir){
   if(slimes.length>=22)return;
@@ -446,6 +539,7 @@ function fireSignature(b,dx){
   }
 }
 function firePattern(b,dx){
+  if(b.pat==='AIR'){startAirBoss(b);return;}
   if(b.pat==='SIG'){fireSignature(b,dx);return;}
   const dir=Math.sign(dx)||1,ph=b.phase2?1.25:1,col=b.color||'#ff2255';
   const id=++patId;b.pid=id;

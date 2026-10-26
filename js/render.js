@@ -1,7 +1,7 @@
 // js/render.js — Kenney Pixel Platformer (CC0) + fallback procedural por rects
 'use strict';
 function R(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x-camX),Math.round(y-camY),w,h);}
-const PAT_LABEL={SINGLE:'TIRO',DOUBLE:'DOBLE',WAVE:'ONDA',PULSE:'PULSO',RICOCHET:'REBOTE',BLACKHOLE:'VACÍO',TELEPORT:'SALTO',CLONE:'ECO',FAN:'ABANICO',SIG:'FIRMA',RUSH:'EMBESTIDA'};
+const PAT_LABEL={SINGLE:'TIRO',DOUBLE:'DOBLE',WAVE:'ONDA',PULSE:'PULSO',RICOCHET:'REBOTE',BLACKHOLE:'VACÍO',TELEPORT:'SALTO',CLONE:'ECO',FAN:'ABANICO',SIG:'FIRMA',RUSH:'EMBESTIDA',AIR:'AIRE'};
 function draw(){
   if(state==='ending'){drawEnding();return;}
   ctx.imageSmoothingEnabled=false;
@@ -101,6 +101,17 @@ function draw(){
       ctx.globalAlpha=1;
     }
     const top=b.y-bh;
+    // Fase aérea: escudo visible mientras está fuera de alcance.
+    if(b.st==='AIR'){
+      const pu=0.35+0.22*Math.sin(t*7);
+      ctx.save();
+      ctx.strokeStyle='#33e6ff';ctx.globalAlpha=pu;ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(bx-camX,b.y-bh*0.5-camY,bh*0.68+6,0,7);ctx.stroke();
+      ctx.globalAlpha=0.10;ctx.fillStyle='#33e6ff';ctx.fill();
+      ctx.globalAlpha=0.85;ctx.fillStyle='#33e6ff';ctx.font='bold 10px monospace';ctx.textAlign='center';
+      ctx.fillText('AIRE · ESQUIVA',bx-camX,top-40-camY);
+      ctx.restore();
+    }
     if(b.phase2){
       const pu=2+Math.sin(performance.now()/120)*1.5;
       ctx.strokeStyle='#ffd933';ctx.lineWidth=pu;ctx.strokeRect(bx-(b.sw||b.w)/2-3-camX,top-3-camY,(b.sw||b.w)+6,bh+6);
@@ -132,6 +143,11 @@ function draw(){
         const R2=b.type==='BassTitan'?200:160;
         ctx.globalAlpha=0.25+0.35*k;
         ctx.beginPath();ctx.arc(bx-camX,b.y-40-camY,R2*k,0,7);ctx.stroke();
+      }else if(b.pat==='AIR'){
+        // Flecha vertical: el boss va a subir y atacar desde arriba.
+        ctx.globalAlpha=0.25+0.35*k;ctx.setLineDash([6,10]);
+        ctx.beginPath();ctx.moveTo(bx-camX,b.y-bh-camY);ctx.lineTo(bx-camX,b.y-bh-160-camY);ctx.stroke();ctx.setLineDash([]);
+        ctx.beginPath();ctx.moveTo(bx-9-camX,b.y-bh-160-camY+14);ctx.lineTo(bx-camX,b.y-bh-160-camY);ctx.lineTo(bx+9-camX,b.y-bh-160-camY+14);ctx.stroke();
       }
       ctx.restore();
       const ptxt=b.pat==='SIG'?(b.sigName||'FIRMA'):(PAT_LABEL[b.pat]||b.pat);
@@ -156,7 +172,7 @@ function draw(){
     ctx.save();
     ctx.fillStyle='#000b';ctx.fillRect(hx-4,hy-20,hw+8,44);
     ctx.font='bold 12px monospace';ctx.fillStyle=hb.color;
-    ctx.fillText('BOSS · '+hb.type+(hb.phase2?'  [FASE 2]':''),hx,hy-6);
+    ctx.fillText('BOSS · '+hb.type+(hb.phase2?'  [FASE 2]':'')+(hb.st==='AIR'?'  [AIRE]':''),hx,hy-6);
     ctx.fillStyle='#2a0b12';ctx.fillRect(hx,hy,hw,hh);
     const trail=Math.max(0,Math.min(1,(hb.hpAnim===undefined?hb.hp:hb.hpAnim)/hb.maxhp));
     ctx.fillStyle='#ffffff66';ctx.fillRect(hx,hy,hw*trail,hh);

@@ -28,7 +28,7 @@ function resetWorld(){
   LOCK_DEFS.forEach(L=>{if(!S.locks[L.id])locks.push(Object.assign({done:false},L,{y:780}));});
   SLIME_DEFS.forEach(([x,type])=>{const st=SLIME_TYPES[type]||SLIME_TYPES.slime;
     slimes.push({x,y:700,vx:0,vy:0,w:st.w,h:st.h,hp:st.hp,maxhp:st.hp,dir:1,home:x,t:0,stun:0,dr:0,contactCd:0,squash:0,type,color:st.color,hue:st.hue,spd:st.spd,chase:st.chase,contact:st.contact,jump:st.jump});});
-  BOSS_DEFS.forEach((d,i)=>{if(!S.bosses[d.type])bosses.push(Object.assign({},d,{y:GROUND_TOP,vx:0,vy:0,w:52,h:84,maxhp:d.hp,hpAnim:d.hp,st:'IDLE',t:0.5,phase2:false,contactCd:0,stun:0,stunDr:0,flash:0,hitT:0,idx:i,spiral:Math.random()*6.28,locked:false,atkCount:0,lastPat:'',pid:0,dashCd:0.9,farT:0,evadeCd:0.8,evadeT:0,evadeDir:1,strafeT:0,strafeDir:1,lungeVx:0}));});
+  BOSS_DEFS.forEach((d,i)=>{if(!S.bosses[d.type])bosses.push(Object.assign({},d,{y:GROUND_TOP,vx:0,vy:0,w:52,h:84,maxhp:d.hp,hpAnim:d.hp,st:'IDLE',t:0.5,phase2:false,contactCd:0,stun:0,stunDr:0,flash:0,hitT:0,idx:i,spiral:Math.random()*6.28,locked:false,atkCount:0,lastPat:'',pid:0,dashCd:0.9,farT:0,evadeCd:0.8,evadeT:0,evadeDir:1,strafeT:0,strafeDir:1,lungeVx:0,airT:0,airY:GROUND_TOP,airX:d.x,airMax:0,airAtk:0,airHit:false}));});
   updateDoorState();
   if(typeof syncWeapon==='function')syncWeapon();
 }
@@ -120,7 +120,8 @@ function rectHit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
 function clampBoss(b){
   const a=ARENAS[b.idx];if(!a)return;
   b.x=Math.max(a[0]+40,Math.min(a[1]-40,b.x));
-  b.y=GROUND_TOP;b.vx=0;b.vy=0;
+  // En AIR la y la controla updateAirBoss; no la pegues al suelo cada frame.
+  if(b.st!=='AIR'){b.y=GROUND_TOP;b.vx=0;b.vy=0;}
 }
 function moveBody(e,dt){
   const Ss=solids();

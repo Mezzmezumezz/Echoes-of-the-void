@@ -104,6 +104,7 @@ function update(rdt){
     b.evadeCd=(b.evadeCd||0)-dt;
     b.dashCd=(b.dashCd||0)-dt;
     if(b.st==='STUNNED'){if(b.t<=0){b.st='IDLE';b.t=0.5;}return;}
+    if(b.st==='AIR'){updateAirBoss(b,dt);return;}
     const dx=player.x-b.x,adx=Math.abs(dx);
     const diffM=S.difficulty==='easy'?0.7:S.difficulty==='hard'?1.25:1;
     // Embestida: cierra la distancia y castiga el campamento a distancia.
@@ -159,7 +160,7 @@ function update(rdt){
       }
     }
     if(b.st==='IDLE'&&b.t<=0&&b.evadeT<=0){b.st='TELE';b.t=b.tele||0.35;b.flash=0.35;choosePattern(b,dx,adx);}
-    else if(b.st==='TELE'&&b.t<=0){firePattern(b,dx);if(b.st!=='LUNGE'){b.st='IDLE';b.t=(b.idle||1.15)*(b.phase2?0.55:0.85);}}
+    else if(b.st==='TELE'&&b.t<=0){firePattern(b,dx);if(b.st!=='LUNGE'&&b.st!=='AIR'){b.st='IDLE';b.t=(b.idle||1.15)*(b.phase2?0.55:0.85);}}
     if(adx<42&&Math.abs(b.y-player.y)<80&&b.contactCd<=0){b.contactCd=0.9;hurtPlayer(b.contact,b.x);}
   });
   bosses=bosses.filter(b=>!b.dead);
