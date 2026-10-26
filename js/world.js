@@ -1,8 +1,10 @@
 // js/world.js — estado, física, checkpoints
 'use strict';
 let state='menu',skillOpen=false;
+let endingT=0;
 let camX=0,camY=300;
-let player,slimes=[],bosses=[],pProj=[],eProj=[],parts=[],floaters=[],notes=[];
+let player,slimes=[],bosses=[],pProj=[],eProj=[],parts=[],floaters=[],notes=[],fx=[];
+let banner=null,flashT=0,flashCol='#fff';
 let lastKickSeen=0,noteCombo=0,noteBest=0;
 let doors=[];
 let shards=[],locks=[];
@@ -16,19 +18,22 @@ let _warnArena=-1;
 
 function maxHP(){return Math.round((100+(S.skills.hp_1?20:0)+(S.skills.hp_2?30:0))*diff().hpMult);}
 function checkpointX(id){const c=CHECKPOINTS.find(c=>c.id===id);return c?c.x:180;}
-function newPlayer(){const sx=checkpointX(S.checkpoint);return{x:sx,y:700,vx:0,vy:0,w:24,h:32,hp:maxHP(),en:100,face:1,onFloor:false,wallDir:0,hurtT:0,hurtDir:1};}
+function newPlayer(){const sx=checkpointX(S.checkpoint);return{x:sx,y:700,vx:0,vy:0,w:24,h:32,hp:maxHP(),en:100,face:1,onFloor:false,wallDir:0,hurtT:0,hurtDir:1,landT:0,ghostT:0};}
 function resetWorld(){
-  player=newPlayer();slimes=[];bosses=[];pProj=[];eProj=[];parts=[];floaters=[];notes=[];lastKickSeen=Rhythm.kickCount;noteCombo=0;delayed=[];_warnArena=-1;
+  player=newPlayer();slimes=[];bosses=[];pProj=[];eProj=[];parts=[];floaters=[];notes=[];fx=[];banner=null;flashT=0;lastKickSeen=Rhythm.kickCount;noteCombo=0;delayed=[];_warnArena=-1;
   doors=[];shards=[];locks=[];wi=0;atkCd=0;comboIdx=0;comboT=0;dashT=0;dashCd=0;iframes=0;deadT=0;camShakeT=0;camShake=0;currentArea=-1;areaT=0;
   attackHeld=false;swingT=0;swingKind='';switchT=0;noteVis=0;
   ARENAS.forEach(([a,b])=>{doors.push({x:a,open:true});doors.push({x:b,open:true});});
   SHARD_DEFS.forEach(([x,y],i)=>{if(!S.shards['sh'+i])shards.push({id:'sh'+i,x,y,t:Math.random()*6});});
   LOCK_DEFS.forEach(L=>{if(!S.locks[L.id])locks.push(Object.assign({done:false},L,{y:780}));});
-  SLIME_DEFS.forEach(([x])=>slimes.push({x,y:700,vx:0,vy:0,w:26,h:24,hp:70,dir:1,home:x,t:0,stun:0,dr:0,contactCd:0,squash:0}));
-  BOSS_DEFS.forEach((d,i)=>{if(!S.bosses[d.type])bosses.push(Object.assign({},d,{y:GROUND_TOP,vx:0,vy:0,w:52,h:84,maxhp:d.hp,st:'IDLE',t:0.5,tele:0,phase2:false,contactCd:0,stun:0,stunDr:0,flash:0,idx:i,spiral:Math.random()*6.28,locked:false}));});
+  SLIME_DEFS.forEach(([x,type])=>{const st=SLIME_TYPES[type]||SLIME_TYPES.slime;
+    slimes.push({x,y:700,vx:0,vy:0,w:st.w,h:st.h,hp:st.hp,maxhp:st.hp,dir:1,home:x,t:0,stun:0,dr:0,contactCd:0,squash:0,type,color:st.color,hue:st.hue,spd:st.spd,chase:st.chase,contact:st.contact,jump:st.jump});});
+  BOSS_DEFS.forEach((d,i)=>{if(!S.bosses[d.type])bosses.push(Object.assign({},d,{y:GROUND_TOP,vx:0,vy:0,w:52,h:84,maxhp:d.hp,hpAnim:d.hp,st:'IDLE',t:0.5,phase2:false,contactCd:0,stun:0,stunDr:0,flash:0,hitT:0,idx:i,spiral:Math.random()*6.28,locked:false,atkCount:0,lastPat:'',pid:0,dashCd:0.9,farT:0,evadeCd:0.8,evadeT:0,evadeDir:1,strafeT:0,strafeDir:1,lungeVx:0}));});
   updateDoorState();
   if(typeof syncWeapon==='function')syncWeapon();
 }
+function screenFlash(col,dur){flashT=Math.max(flashT||0,dur||0.22);flashCol=col||'#fff';}
+function showBanner(txt,sub,col,dur){banner={txt,sub:sub||'',col:col||'#fff',t:dur||1.6,max:dur||1.6};}
 // Boss en lock-in SELLADO: solo el boss con locked=true ataca.
 // Se activa al pisar su arena y no se abre hasta matarlo (sin escape).
 function activeBoss(){
@@ -43,7 +48,7 @@ function tryLockBosses(){
     // Margen 34px: puerta (12) + medio jugador (12) + colchón (10).
     // Antes era +8 y la puerta se cerraba encima del jugador y moveBody lo expulsaba fuera -> softlock.
     if(player.x>a[0]+34&&player.x<a[1]-34){
-      b.locked=true;b.t=0.6;noteCombo=0;
+      b.locked=true;b.t=0.6;b.st='IDLE';noteCombo=0;
       // Cada boss impone su propio BPM (antes se arrastraba el del boss anterior)
       Rhythm.bpm=(b.bpm&&b.bpm[0])||120;Rhythm.rebase();lastKickSeen=Rhythm.kickCount;
       // Asegura que el jugador queda bien dentro, nunca solapando la puerta
@@ -51,6 +56,9 @@ function tryLockBosses(){
       player.vx*=0.3;
       floaters.push({x:b.x,y:b.y-b.h-60,txt:'¡LOCK-IN! Sin salida',t:1.6,c:'#f66'});
       floaters.push({x:player.x,y:player.y-90,txt:'▼ SELLADO ▼',t:1.6,c:'#f66'});
+      if(typeof showBanner==='function')showBanner(b.type,'LOCK-IN · '+Rhythm.bpm+' BPM',b.color,1.5);
+      screenFlash(b.color,0.32);camShakeT=0.35;camShake=8;
+      if(typeof Music!=='undefined'&&Music.syncBoss)Music.syncBoss(Rhythm.bpm,true);
       beep(90,0.5,0.3,'sawtooth');beep(180,0.3,0.2,'square');
       // Polvo en ambas puertas al cerrar
       for(const dx of [a[0],a[1]])burst(dx,775,'#f66',12,260);
@@ -87,7 +95,7 @@ function checkArenaWarning(){
       return i;
     }
   }
-  if(_warnArena!==-1&&Math.random()<0.02)_warnArena=-1;
+  _warnArena=-1;
   return null;
 }
 function updateDoorState(){
@@ -140,4 +148,11 @@ function checkCheckpoints(){
       beep(880,0.15,0.2);
     } else break;
   }
+}
+// Fallback: si el jugador recargó justo tras matar al Primordial, el final
+// también se abre al cruzar el "Fin del Vacío" (sin repetir la animación en bucle).
+function checkFinale(){
+  if(state!=='play'||S.endingSeen||!S.bosses.EchoPrimordial)return false;
+  if(player.x<15480)return false;
+  startEnding();return true;
 }

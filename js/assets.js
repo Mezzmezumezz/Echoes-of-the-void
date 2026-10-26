@@ -30,7 +30,9 @@ const Assets={
     ctx.save();
     ctx.translate(Math.round(sx),Math.round(sy));
     if(flip)ctx.scale(-1,1);
+    if(opts&&(opts.sx!==undefined||opts.sy!==undefined))ctx.scale(opts.sx!==undefined?opts.sx:1,opts.sy!==undefined?opts.sy:1);
     if(opts&&opts.white)ctx.filter='brightness(0) invert(1)';
+    else if(opts&&opts.hue)ctx.filter='hue-rotate('+opts.hue+'deg)';
     if(opts&&opts.alpha!==undefined)ctx.globalAlpha=opts.alpha;
     ctx.drawImage(this.img[name],Math.round(-w/2),Math.round(-h),w,h);
     ctx.filter='none';

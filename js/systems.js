@@ -2,10 +2,11 @@
 'use strict';
 // ---------- SAVE ----------
 const SAVE_KEY='echoes_save';
-let S={echoes:0,skills:{},bosses:{},shards:{},locks:{},shade:null,difficulty:'normal',checkpoint:'start',howDone:false,showDmg:true};
+let S={echoes:0,skills:{},bosses:{},shards:{},locks:{},shade:null,difficulty:'normal',checkpoint:'start',howDone:false,showDmg:true,endingSeen:false};
 try{const r=localStorage.getItem(SAVE_KEY);if(r)S=Object.assign(S,JSON.parse(r));}catch(e){}
 if(!DIFFS[S.difficulty])S.difficulty='normal';
 if(S.showDmg===undefined)S.showDmg=true;
+if(S.endingSeen===undefined)S.endingSeen=false;
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(S));}catch(e){}}
 function diff(){return DIFFS[S.difficulty]||DIFFS.normal;}
 function echoGain(n){return Math.round(n*diff().echoMult);}
@@ -45,8 +46,8 @@ const Rhythm={bpm:120,last:0,next:0,count:0,lastKick:0,kickCount:0,kickPat:[1,0,
 // ---------- MUSICA (2 .wav en loop gapless + crossfade a 120 BPM + boss tracks) ----------
 // menu  = pantalla de carga + pausa -> assets/soundtrack_pantalla_de_carga.wav (32s = 16 compases @ 120)
 // main  = exploracion (play sin boss) -> assets/soundtrack_principal.wav (32s = 16 compases @ 120)
-// boss Resonator fase 1 (95 BPM) -> assets/boss_resonator_95bpm.wav (10.26s = 4 compases @ 95)
-// bosses sin track = fade-out a silencio (solo SFX/beeps)
+// boss  = cualquier boss -> assets/boss_resonator_95bpm.wav reproducido a bpm/95
+//         (preservesPitch mantiene el tono; el lock-in y la fase 2 reinician para cuadrar el pulso)
 // Crossfade 1.0s (=2 beats @ 120) para no romper la fase.
 const Music={
   menu:null,main:null,bossRes:null,current:null,target:'__none__',unlocked:false,
@@ -97,7 +98,18 @@ const Music={
       }catch(e){}
     },30);
   },
-  unlock(){this.init();this.unlocked=true;this.target='__none__';updateMusic();}
+  unlock(){this.init();this.unlocked=true;this.target='__none__';updateMusic();},
+  // Ajusta el track de boss al BPM del jefe. restart=true re-cuadra el pulso en lock-in/fase 2.
+  syncBoss(bpm,restart){
+    this.init();
+    const el=this.bossRes;if(!el)return;
+    const rate=Math.max(0.5,Math.min(1.8,(bpm||95)/95));
+    try{
+      el.preservesPitch=true;el.mozPreservesPitch=true;el.webkitPreservesPitch=true;
+      if(Math.abs(el.playbackRate-rate)>0.001)el.playbackRate=rate;
+      if(restart)el.currentTime=0;
+    }catch(e){}
+  }
 };
 // Decide que pista debe sonar segun estado + boss activo.
 // Se llama cada frame desde loop() (barato: no hace nada si no hay cambio).
@@ -108,17 +120,14 @@ function updateMusic(){
   if(typeof Piano!=='undefined'&&Piano.active)return;
   if(typeof tutHowOpen!=='undefined'&&tutHowOpen&&typeof state==='play')return;
   let want=null;
-  if(state==='menu'||state==='pause')want='menu';
+  if(state==='menu'||state==='pause'||state==='ending')want='menu';
   else if(state==='play'){
     let ab=null;
     try{ab=(typeof activeBoss==='function')?activeBoss():null;}catch(_){}
     if(ab){
-      // Resonator (idx 0): fase 1 = 95 BPM -> track bossRes; fase 2 = 130 BPM -> silencio por ahora
-      if(ab.type==='Resonator'){
-        want=ab.phase2?null:'bossRes';
-      }else{
-        want=null; // otros bosses: silencio
-      }
+      // Todos los bosses comparten track; playbackRate lo ajusta al BPM del jefe activo.
+      want='bossRes';
+      Music.syncBoss(ab.phase2?ab.bpm[1]:ab.bpm[0],false);
     }else{
       want='main';
     }

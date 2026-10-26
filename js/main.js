@@ -11,7 +11,13 @@ function startGame(skillOnly){
   try{ac();}catch(e){}
   try{if(typeof Music!=='undefined')Music.unlock();}catch(e){}
   $('title').classList.add('hidden');titleDone=true;
+  // Tras los créditos, Jugar inicia un ciclo nuevo (conserva skills/ecos).
+  const newCycle=!!S.endingSeen;
+  if(newCycle){
+    S.bosses={};S.locks={};S.shards={};S.checkpoint='start';S.shade=null;S.endingSeen=false;save();
+  }
   showOverlay('menu',false);showOverlay('pause',false);state='play';resetWorld();Rhythm.rebase();
+  if(newCycle&&!skillOnly)showBanner('NUEVO CICLO','El Vacío vuelve a latir','#ffd933',2.2);
   if(skillOnly){openSkill();return;}
   if(!S.howDone)openHow();
 }
@@ -28,7 +34,10 @@ function bindUI(){
   document.querySelectorAll('.dsect').forEach(el=>{el.onclick=()=>setDifficulty(el.dataset.d);el.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();setDifficulty(el.dataset.d);}};});
   document.querySelectorAll('.pkey').forEach(el=>{el.onclick=()=>Piano.press(Number(el.dataset.k));});
   document.querySelectorAll('.lane').forEach(el=>{el.onclick=()=>{const k=Number(el.dataset.k);flashLane(k,hitNote(k,false));};});
-  $('game').onpointerdown=()=>{if(state==='play'&&!Piano.active&&!skillOpen&&!tutHowOpen){attack();hitNote(null,true);}}; // clic = atacar + romper ficha (los overlays tapan el canvas)
+  $('game').onpointerdown=()=>{
+    if(state==='ending'){endingAdvance();return;}
+    if(state==='play'&&!Piano.active&&!skillOpen&&!tutHowOpen){attack();hitNote(null,true);} // clic = atacar + romper ficha (los overlays tapan el canvas)
+  };
 }
 bindUI();markDiff();syncWeapon();initSlide();resetWorld();Rhythm.rebase();
 // ---------- PANTALLA DE TITULO: solo se sale con el slider (initSlide en ui.js) ----------

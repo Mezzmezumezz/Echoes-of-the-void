@@ -1,5 +1,11 @@
 // js/combat.js — combate, bosses con timers escalados
 'use strict';
+const BOSS_SKILL_INFO={
+  boss_ricochet:'Rebote: tus balas vuelven',
+  boss_blackhole:'Especial limpia balas',
+  boss_teleport:'Dash aéreo',
+  boss_clone:'Eco: +25% daño'
+};
 function timingMult(){return Rhythm.evaluate();}
 function burst(x,y,color,n,spd){
   for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-0.5)*spd,vy:-Math.random()*spd*0.8,t:0.4+Math.random()*0.3,c:color});
@@ -9,21 +15,33 @@ function shockRing(x,y,color,maxR){
 }
 function dealBossDmg(b,dmg){
   if(b.dead)return;
-  b.hp-=dmg;b.flash=0.12;
+  // El stun premia: boss aturdido recibe +25%. El eco final suma otro +25%.
+  if(b.st==='STUNNED')dmg=Math.round(dmg*1.25);
+  if(S.skills.boss_clone)dmg=Math.round(dmg*1.25);
+  b.hp-=dmg;b.flash=0.12;b.hitT=0.14;
   // Números: blanco = tu daño normal · amarillo = golpe fuerte (>=32, puede stunear). Se ocultan con H.
   if(S.showDmg!==false)floaters.push({x:b.x,y:b.y-b.h-10,txt:'-'+dmg,t:0.8,c:dmg>=32?'#ffd933':'#fff'});
   // Chispas proporcionales al daño
   burst(b.x,b.y-40,dmg>=32?'#ffd933':'#fff',dmg>=32?10:4,320);
-  if(dmg>=32){hitstop(0.1,0.35);shockRing(b.x,b.y-40,'#ffffff88',90);}
+  if(dmg>=32){hitstop(0.1,0.35);shockRing(b.x,b.y-40,'#ffffff88',90);camShake=Math.max(camShake,2.5);}
   const now=performance.now();
-  if(dmg>=32&&now-b.stunDr>3000){b.st='STUNNED';b.t=1.4;b.stunDr=now;clearDelayedFor(b.pid);floaters.push({x:b.x,y:b.y-b.h-30,txt:'STUN',t:0.8,c:'#33e6ff'});shockRing(b.x,b.y-40,'#33e6ff',130);}
+  if(dmg>=32&&b.st!=='STUNNED'&&now-b.stunDr>(b.stunRes||3000)){
+    b.st='STUNNED';b.t=1.4;b.stunDr=now;clearDelayedFor(b.pid);
+    floaters.push({x:b.x,y:b.y-b.h-30,txt:'STUN',t:0.8,c:'#33e6ff'});shockRing(b.x,b.y-40,'#33e6ff',130);
+  }
   if(!b.phase2&&b.hp<b.maxhp/2){
-    b.phase2=true;Rhythm.bpm=b.bpm[1];Rhythm.rebase();
-    notes=[];noteCombo=0;
-    floaters.push({x:b.x,y:b.y-b.h-50,txt:'FASE 2 · ¡Enfurecido!',t:1.4,c:'#f0f'});
+    b.phase2=true;
+    // BUG antes: rebase() reseteaba kickCount y lastKickSeen quedaba alto -> el boss
+    // dejaba de disparar y de soltar fichas durante ~14s en plena fase 2.
+    Rhythm.bpm=b.bpm[1];Rhythm.rebase(true);lastKickSeen=Rhythm.kickCount;
+    notes=[];noteCombo=0;clearDelayedFor(b.pid);b.pid=++patId;
+    b.st='IDLE';b.t=0.55;b.atkCount=0;b.lastPat='';b.flash=0.3;
+    showBanner('FASE 2 · '+b.type,'¡ENFURECIDO! '+b.bpm[1]+' BPM','#ff66ff',1.8);
+    screenFlash('#ff66ff',0.22);camShakeT=0.3;camShake=7;
     shockRing(b.x,b.y-40,b.color,220);shockRing(b.x,b.y-40,'#ffffff',140);
     burst(b.x,b.y-40,b.color,22,420);burst(b.x,b.y-40,'#fff',10,300);
     beep(110,0.4,0.3,'sawtooth');beep(220,0.3,0.25,'square');
+    if(typeof Music!=='undefined'&&Music.syncBoss)Music.syncBoss(b.bpm[1],true);
     // En fase 2 suelta ráfaga inicial según tipo para avisar el cambio
     later(()=>{if(!b.dead&&b.locked)fireKickBarrage(b);},0.4);
   }
@@ -31,23 +49,34 @@ function dealBossDmg(b,dmg){
 }
 function killBoss(b){
   b.dead=true;b.locked=false;S.bosses[b.type]=true;
-  eProj=eProj.filter(p=>!p.hell);notes=[];noteCombo=0;
+  clearDelayedFor(b.pid);
+  // Victoria segura: antes quedaban balas no-hell (rebotes/agujeros) golpeando tras morir.
+  eProj=[];notes=[];noteCombo=0;
   const def=BOSS_DEFS.find(d=>d.type===b.type);
-  S.echoes+=echoGain(180);
-  if(def.pair&&S.bosses[def.pair])S.echoes+=echoGain(80);
-  if(def.reward&&!S.skills[def.reward]){S.skills[def.reward]=true;floaters.push({x:b.x,y:b.y-140,txt:'SKILL: '+def.reward,t:2,c:'#3f6'});}
+  let gain=echoGain(180);
+  if(def.pair&&S.bosses[def.pair])gain+=echoGain(80);
+  S.echoes+=gain;
+  const info=BOSS_SKILL_INFO[def.reward];
+  if(def.reward&&!S.skills[def.reward]){S.skills[def.reward]=true;floaters.push({x:b.x,y:b.y-140,txt:'SKILL: '+(info||def.reward),t:2,c:'#3f6'});}
   beep(220,0.4,0.25,'sawtooth');beep(440,0.3,0.2,'square');
   burst(b.x,b.y-40,b.color,30,480);burst(b.x,b.y-40,'#fff',16,360);burst(b.x,b.y-40,'#ffd933',12,300);
   shockRing(b.x,b.y-40,b.color,260);shockRing(b.x,b.y-40,'#fff',170);
+  // Animación de disolución: el sprite se desvanece hacia arriba mientras el cuerpo se rompe.
+  fx.push({kind:'death',spr:b.spr,sw:b.sw||120,sh:b.sh||b.h,hue:b.hue,x:b.x,y:b.y,face:player&&player.x<b.x,t:1.2,max:1.2,color:b.color});
   // Polvo en puertas al abrir
   const a=ARENAS[b.idx];
   if(a)for(const dx of [a[0],a[1]])burst(dx,775,'#3f6',10,240);
-  floaters.push({x:b.x,y:b.y-110,txt:'¡BOSS CAÍDO! +180 ◈',t:2,c:'#ffd933'});
-  // Pequeña cura al ganar para poder continuar la run
-  if(player)player.hp=Math.min(maxHP(),player.hp+20);
+  showBanner('¡'+b.type+' CAÍDO!','+'+gain+' ◈'+(info?' · '+info:''),'#ffd933',2.2);
+  screenFlash('#fff',0.22);
+  // Pequeña cura al ganar para poder continuar la run + respiro
+  if(player){player.hp=Math.min(maxHP(),player.hp+20);iframes=Math.max(iframes,0.7);}
   // Vuelve a BPM exploración para que el siguiente boss ponga el suyo al entrar
   Rhythm.bpm=120;Rhythm.rebase();lastKickSeen=Rhythm.kickCount;
   save();updateDoorState();
+  // Final: deja respirar la muerte del jefe y lanza la cinemática.
+  if(def&&def.type===BOSS_DEFS[BOSS_DEFS.length-1].type&&!S.endingSeen&&BOSS_DEFS.every(d=>S.bosses[d.type])){
+    later(()=>{if(state==='play')startEnding();},2.6,'ending');
+  }
 }
 function attack(fromHold){
   if(atkCd>0||Piano.active||skillOpen||state!=='play')return false;
@@ -92,6 +121,12 @@ function special(){
   player.en-=cost;const ev=timingMult();const mult=ev.r==='PERFECT'?1.5:ev.r==='GOOD'?1.2:0.8;
   const dmg=Math.round(w.esp*mult);
   beep(440,0.2,0.2,'sawtooth');
+  // Recompensa de ChoirWarden: el especial abre un vacío que limpia balas cercanas.
+  if(S.skills.boss_blackhole){
+    let n=0;
+    for(const p of eProj){if(p.hole||p.life<=0)continue;if(Math.hypot(player.x-p.x,(player.y-16)-p.y)<220){p.life=0;n++;burst(p.x,p.y,'#33cc66',3,220);}}
+    if(n){player.en=Math.min(100,player.en+Math.min(18,n*2));shockRing(player.x,player.y-16,'#33cc66',230);floaters.push({x:player.x,y:player.y-72,txt:'VACÍO x'+n+' +EN',t:0.9,c:'#33cc66'});}
+  }
   if(w.kind==='melee'){
     bosses.forEach(b=>{if(!b.dead&&Math.hypot(b.x-player.x,(b.y-b.h/2)-(player.y-16))<170)dealBossDmg(b,dmg);});
     slimes.forEach(s=>{if(!s.dead&&Math.abs(s.x-player.x)<170)hurtSlime(s,dmg,player.face);});
@@ -127,10 +162,17 @@ function tryAttackParry(ev){
 }
 function hurtSlime(s,dmg,dir){
   const now=performance.now();s.hp-=dmg;s.flash=0.1;s.squash=0.25;if(dmg>=22)hitstop(0.1,0.35);beep(300,0.06,0.15);
-  if(S.showDmg!==false)floaters.push({x:s.x,y:s.y-30,txt:'-'+dmg,t:0.7,c:'#fff'});
+  if(S.showDmg!==false)floaters.push({x:s.x,y:s.y-30,txt:'-'+dmg,t:0.7,c:dmg>=22?'#ffd933':'#fff'});
+  burst(s.x,s.y-s.h*0.5,dmg>=22?'#ffd933':(s.color||'#9f9'),dmg>=22?8:4,260);
   if(dmg>=22&&now-s.dr>1200){s.stun=0.7;s.dr=now;}
   s.vx=dir*160;s.vy=-90;
-  if(s.hp<=0&&!s.dead){s.dead=true;player.en=Math.min(100,player.en+20);S.echoes+=echoGain(12+Math.floor(Math.random()*13));save();}
+  if(s.hp<=0&&!s.dead){
+    s.dead=true;player.en=Math.min(100,player.en+20);
+    const gain=echoGain(12+Math.floor(Math.random()*13));S.echoes+=gain;
+    burst(s.x,s.y-s.h*0.5,s.color||'#3c6',14,340);shockRing(s.x,s.y-s.h*0.5,s.color||'#3c6',80);
+    floaters.push({x:s.x,y:s.y-s.h-14,txt:'+'+gain+' ◈',t:0.8,c:'#ffd933'});
+    save();
+  }
 }
 function dash(){
   if(dashCd>0||state!=='play'||player.hurtT>0)return;const ev=timingMult();dashCd=0.45;dashT=0.17;
@@ -235,6 +277,7 @@ function fireKickBarrage(b){
   const fanN=easy?3:(hard?5+Math.floor(esc/2):(early?3:4+Math.floor(esc/2)));
   const rainN=easy?5+esc:(hard?9+esc:7+esc);
   const spd=(hard?320+esc*8:(b.phase2?300+esc*10:(early?250:275+esc*10)))*(b.phase2?1.12:1);
+  const col=b.color||'#ff2255';
   const pref={
     Resonator:[0,1,0,1],
     BassTitan:[3,1,3,0],
@@ -245,36 +288,37 @@ function fireKickBarrage(b){
   }[b.type]||[0,1,2,3];
   const mode=pref[Rhythm.kickCount%pref.length];
   const sx=b.x,sy=b.y-50;
+  burst(sx,sy,col,3,90); // fogonazo de salida, ahora visible y del color del jefe
   if(mode===0){ // RING radial
     for(let i=0;i<ringN;i++){const a=i/ringN*Math.PI*2+b.spiral*0.3;
-      eProj.push({x:sx,y:sy,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,w:12,h:12,life:2.6,dmg:Math.round(11*ph),hell:true});}
+      eProj.push({x:sx,y:sy,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,w:12,h:12,life:2.6,dmg:Math.round(11*ph),hell:true,col});}
     beep(140,0.14,0.2,'sawtooth');
   }else if(mode===1){ // FAN apuntado al jugador
     for(let i=0;i<fanN;i++){const off=(i-(fanN-1)/2)*0.16;const a=baseAng+off;
-      eProj.push({x:sx,y:sy,vx:Math.cos(a)*spd*1.25,vy:Math.sin(a)*spd*1.25,w:13,h:13,life:2.2,dmg:Math.round(12*ph),hell:true});}
+      eProj.push({x:sx,y:sy,vx:Math.cos(a)*spd*1.25,vy:Math.sin(a)*spd*1.25,w:13,h:13,life:2.2,dmg:Math.round(12*ph),hell:true,col});}
     beep(180,0.1,0.18,'sawtooth');
   }else if(mode===2){ // SPIRAL doble rotatoria
     b.spiral+=0.55;
     for(const o of [0,Math.PI]){const a=b.spiral+o;
-      eProj.push({x:sx,y:sy,vx:Math.cos(a)*spd*0.9,vy:Math.sin(a)*spd*0.9,w:12,h:12,life:3,dmg:Math.round(10*ph),hell:true});}
+      eProj.push({x:sx,y:sy,vx:Math.cos(a)*spd*0.9,vy:Math.sin(a)*spd*0.9,w:12,h:12,life:3,dmg:Math.round(10*ph),hell:true,col});}
     if(b.phase2){for(const o of [Math.PI/2,-Math.PI/2]){const a=b.spiral+o;
-      eProj.push({x:sx,y:sy,vx:Math.cos(a)*spd*0.9,vy:Math.sin(a)*spd*0.9,w:12,h:12,life:3,dmg:Math.round(10*ph),hell:true});}}
+      eProj.push({x:sx,y:sy,vx:Math.cos(a)*spd*0.9,vy:Math.sin(a)*spd*0.9,w:12,h:12,life:3,dmg:Math.round(10*ph),hell:true,col});}}
     beep(200,0.08,0.15,'sawtooth');
   }else{ // RAIN: lluvia con hueco sobre el jugador (esquiva lateral)
     const n=rainN;
     for(let i=0;i<n;i++){const rx=b.x-260+i*(520/Math.max(1,n-1));
       if(Math.abs(rx-player.x)<46)continue; // hueco
-      eProj.push({x:rx,y:sy-160,vx:0,vy:(spd*0.85),w:12,h:12,life:2.4,dmg:Math.round(11*ph),hell:true});}
+      eProj.push({x:rx,y:sy-160,vx:0,vy:(spd*0.85),w:12,h:12,life:2.4,dmg:Math.round(11*ph),hell:true,col});}
     beep(160,0.12,0.18,'sawtooth');
   }
   // Extra para bosses tardíos: doble presión en el mismo bombo (sin duplicar notas)
   if(!easy&&b.idx>=3&&b.st!=='STUNNED'){
     b.spiral+=0.2;
     const a2=b.spiral;
-    eProj.push({x:sx,y:sy,vx:Math.cos(a2)*spd*0.85,vy:Math.sin(a2)*spd*0.85,w:12,h:12,life:2.6,dmg:Math.round(10*ph),hell:true});
+    eProj.push({x:sx,y:sy,vx:Math.cos(a2)*spd*0.85,vy:Math.sin(a2)*spd*0.85,w:12,h:12,life:2.6,dmg:Math.round(10*ph),hell:true,col});
     if(b.idx>=5||b.phase2){
       const a3=a2+Math.PI;
-      eProj.push({x:sx,y:sy,vx:Math.cos(a3)*spd*0.85,vy:Math.sin(a3)*spd*0.85,w:12,h:12,life:2.6,dmg:Math.round(10*ph),hell:true});
+      eProj.push({x:sx,y:sy,vx:Math.cos(a3)*spd*0.85,vy:Math.sin(a3)*spd*0.85,w:12,h:12,life:2.6,dmg:Math.round(10*ph),hell:true,col});
     }
   }
   if(eProj.length>160)eProj.splice(0,eProj.length-160);
@@ -288,49 +332,160 @@ function fireKickBarrage(b){
     spawnNote(b,k1);spawnNote(b,k2,0.14);
   }else if(kc%2===0)spawnNote(b);
 }
+const BOSS_PREFS={
+  Resonator:[['DOUBLE',.3],['WAVE',.2],['PULSE',.15],['TELEPORT',.08],['SINGLE',.27]],
+  BassTitan:[['WAVE',.3],['PULSE',.28],['DOUBLE',.17],['SINGLE',.25]],
+  ChoirWarden:[['RICOCHET',.18],['DOUBLE',.22],['WAVE',.16],['TELEPORT',.1],['FAN',.14],['SINGLE',.2]],
+  VoidHarvester:[['BLACKHOLE',.14],['DOUBLE',.2],['PULSE',.2],['FAN',.12],['SINGLE',.34]],
+  EchoPrime:[['TELEPORT',.24],['DOUBLE',.22],['RICOCHET',.16],['WAVE',.15],['FAN',.13],['SINGLE',.1]],
+  EchoPrimordial:[['TELEPORT',.14],['CLONE',.12],['RICOCHET',.12],['BLACKHOLE',.12],['DOUBLE',.16],['WAVE',.16],['FAN',.1],['SINGLE',.08]]
+};
+function weightedPick(opts,exclude){
+  let total=0;for(const [p,w] of opts)if(p!==exclude)total+=w;
+  if(total<=0)return opts[0][0];
+  let r=Math.random()*total;
+  for(const [p,w] of opts){if(p===exclude)continue;r-=w;if(r<=0)return p;}
+  return opts[0][0];
+}
 function choosePattern(b,dx,adx){
-  const r=Math.random();
-  // Personalidad por boss
+  b.atkCount=(b.atkCount||0)+1;
+  // Firma única cada N ataques (en fase 2 cae un ataque antes).
+  const every=Math.max(2,(b.sigEvery||4)-(b.phase2?1:0));
+  if(b.atkCount%every===0){b.pat='SIG';return;}
+  // Personalidad por boss + variedad: nunca repite el mismo patrón dos veces seguidas.
+  let opts=BOSS_PREFS[b.type]||BOSS_PREFS.Resonator;
   if(adx<110){
-    if(b.type==='BassTitan')b.pat=r<0.6?'PULSE':'WAVE';
-    else b.pat='WAVE';
-    return;
+    opts=b.type==='BassTitan'?[['PULSE',.6],['WAVE',.4]]:[['WAVE',.55],['PULSE',.3],['FAN',.15]];
+  }else if(adx>330){
+    // A distancia no tiene sentido el pulso de cuerpo a cuerpo: presiona con ataques que llegan.
+    opts=opts.filter(([p])=>p!=='PULSE');
+    if(b.phase2)opts=opts.map(([p,w])=>[p,p==='TELEPORT'||p==='FAN'?w*1.5:w]);
   }
+  b.pat=weightedPick(opts,b.lastPat);
+  b.lastPat=b.pat;
+}
+function cloneSlime(b,ox,dir){
+  if(slimes.length>=22)return;
+  const st=SLIME_TYPES.mite;
+  slimes.push({x:b.x+(ox||40),y:b.y-20,vx:0,vy:0,w:st.w,h:st.h,hp:st.hp,maxhp:st.hp,dir:dir||-1,home:b.x,t:0,stun:0,dr:0,contactCd:0,squash:0,type:'clone',color:'#cc33cc',hue:280,spd:st.spd,chase:st.chase,contact:10,jump:st.jump});
+}
+// Firma por boss: un ataque exclusivo que rompe el bucle y enseña su identidad.
+function fireSignature(b,dx){
+  const sx=b.x,sy=b.y-50,ph=b.phase2?1.25:1,dir=Math.sign(dx)||1,col=b.color||'#f66';
+  const id=++patId;b.pid=id;
+  const alive=()=>!b.dead&&b.st!=='STUNNED'&&b.pid===id;
   switch(b.type){
-    case 'Resonator': // Tutorial: tiro simple y dobles, poco teleport
-      if(r<0.35)b.pat='DOUBLE';else if(r<0.55)b.pat='WAVE';else if(r<0.7)b.pat='PULSE';else if(r<0.78)b.pat='TELEPORT';else b.pat='SINGLE';
+    case 'Resonator': // CASCADA: tres pulsos de suelo, salta el tercero o dash.
+      for(let i=0;i<3;i++)later(()=>{
+        if(!alive())return;
+        const R2=170+i*90;
+        shockRing(sx,b.y-40,col,R2);burst(sx,b.y-40,col,10,260);
+        if(Math.abs(player.x-sx)<R2&&player.y>GROUND_TOP-90)hurtPlayer(Math.round(11*ph),sx);
+        beep(110+i*35,0.28,0.22,'sawtooth');
+      },i*0.38,id);
       break;
-    case 'BassTitan': // Tanque: waves y pulses pesados
-      if(r<0.35)b.pat='WAVE';else if(r<0.6)b.pat='PULSE';else if(r<0.75)b.pat='DOUBLE';else b.pat='SINGLE';
+    case 'BassTitan': // TERREMOTO: ondas de suelo a ambos lados + escombros.
+      hitstop(0.1,0.35);camShakeT=0.4;camShake=9;
+      for(const d of [-1,1])eProj.push({x:sx+d*30,y:GROUND_TOP-18,vx:d*330,vy:0,w:34,h:26,life:2.1,dmg:Math.round(18*ph),hell:true,col,ground:true});
+      for(let i=0;i<3;i++)later(()=>{
+        if(!alive())return;
+        eProj.push({x:player.x+(i-1)*80,y:GROUND_TOP-300,vx:0,vy:400,w:16,h:16,life:1.5,dmg:Math.round(13*ph),hell:true,col});
+        burst(player.x+(i-1)*80,GROUND_TOP-300,col,5,120);
+      },0.18+i*0.14,id);
+      shockRing(sx,GROUND_TOP-16,col,240);burst(sx,GROUND_TOP-16,col,22,380);
+      beep(70,0.5,0.3,'sawtooth');beep(120,0.35,0.2,'square');
       break;
-    case 'ChoirWarden': // Coro: ricochets y dobles
-      if(adx>280&&r<0.45)b.pat='RICOCHET';
-      else if(r<0.55)b.pat='DOUBLE';else if(r<0.7)b.pat='WAVE';else if(r<0.8)b.pat='TELEPORT';else b.pat='SINGLE';
+    case 'ChoirWarden': // SERMÓN: tres orbes que caen sobre el jugador y estallan en abanico.
+      for(let i=0;i<3;i++){
+        const ox=player.x+(i-1)*110;
+        eProj.push({x:ox,y:GROUND_TOP-330,vx:0,vy:220,w:18,h:18,life:2.6,dmg:Math.round(11*ph),hell:true,col,fuse:0.9,split:5});
+        burst(ox,GROUND_TOP-330,col,5,120);
+      }
+      shockRing(sx,sy,col,150);burst(sx,sy,col,14,240);beep(240,0.3,0.2,'sine');
       break;
-    case 'VoidHarvester': // Vacío: blackhole + fans
-      if(adx>220&&r<0.4)b.pat='BLACKHOLE';
-      else if(r<0.55)b.pat='DOUBLE';else if(r<0.7)b.pat='PULSE';else b.pat='SINGLE';
+    case 'VoidHarvester': { // HORIZONTE: agujero avisado bajo el jugador + lluvia radial.
+      const tx=player.x,ty=Math.max(GROUND_TOP-230,Math.min(GROUND_TOP-80,player.y-100));
+      later(()=>{
+        if(!alive())return;
+        shockRing(tx,ty,'#33cc66',200);burst(tx,ty,'#33cc66',18,300);
+        eProj.push({x:tx,y:ty,hole:true,t:3.4});
+        beep(60,0.6,0.3,'sawtooth');
+      },0.55,id);
+      for(let i=0;i<8;i++)later(()=>{
+        if(!alive())return;
+        const a=Math.random()*6.283;
+        eProj.push({x:sx,y:sy,vx:Math.cos(a)*220,vy:Math.sin(a)*220,w:11,h:11,life:2,dmg:Math.round(9*ph),hell:true,col});
+      },0.9+i*0.05,id);
       break;
-    case 'EchoPrime': // Rápido: teleports y dobles
-      if(r<0.3)b.pat='TELEPORT';else if(r<0.5)b.pat='DOUBLE';else if(r<0.62)b.pat='RICOCHET';else if(r<0.75)b.pat='WAVE';else b.pat='SINGLE';
+    }
+    case 'EchoPrime': // DESTELLO: parpadea al otro lado y dispara una cruz dirigida.
+      later(()=>{
+        if(!alive())return;
+        const a=ARENAS[b.idx]||[200,WORLD_W-200];
+        const side=player.x>(a[0]+a[1])/2?-1:1;
+        burst(sx,sy,'#ffe633',18,360);shockRing(sx,sy,'#ffe633',150);
+        b.x=Math.max(a[0]+70,Math.min(a[1]-70,player.x+side*210));clampBoss(b);
+        burst(b.x,b.y-50,'#ffe633',18,360);
+        const ang=Math.atan2((player.y-16)-(b.y-50),player.x-b.x);
+        for(let i=-2;i<=2;i++){const aa=ang+i*0.13;
+          eProj.push({x:b.x,y:b.y-50,vx:Math.cos(aa)*420,vy:Math.sin(aa)*420,w:12,h:12,life:2,dmg:Math.round(11*ph),hell:true,col:'#ffe633'});}
+        beep(1400,0.08,0.2);beep(900,0.06,0.15);
+      },0.4,id);
       break;
-    default: // Primordial: todo + clones
-      if(r<0.22)b.pat='TELEPORT';else if(r<0.34)b.pat='CLONE';
-      else if(r<0.48)b.pat='RICOCHET';else if(r<0.6)b.pat='BLACKHOLE';else if(r<0.75)b.pat='DOUBLE';else b.pat='WAVE';
+    default: { // EchoPrimordial · APOCALIPSIS: anillo + lluvia + eco clon.
+      const n=b.phase2?18:14;
+      for(let i=0;i<n;i++){const a=i/n*6.283+b.spiral;
+        eProj.push({x:sx,y:sy,vx:Math.cos(a)*230,vy:Math.sin(a)*230,w:12,h:12,life:2.6,dmg:Math.round(10*ph),hell:true,col});}
+      for(let i=0;i<7;i++){const rx=sx-280+i*93;if(Math.abs(rx-player.x)<40)continue;
+        eProj.push({x:rx,y:sy-200,vx:0,vy:300,w:13,h:13,life:2.4,dmg:Math.round(11*ph),hell:true,col});}
+      cloneSlime(b,-50,-dir);if(b.phase2)cloneSlime(b,50,dir);
+      b.spiral+=0.4;shockRing(sx,sy,col,260);burst(sx,sy,col,26,420);
+      screenFlash(col,0.18);beep(90,0.5,0.3,'sawtooth');
       break;
+    }
   }
 }
 function firePattern(b,dx){
-  const dir=Math.sign(dx)||1,ph=b.phase2?1.25:1;
+  if(b.pat==='SIG'){fireSignature(b,dx);return;}
+  const dir=Math.sign(dx)||1,ph=b.phase2?1.25:1,col=b.color||'#ff2255';
   const id=++patId;b.pid=id;
   const alive=()=>!b.dead&&b.st!=='STUNNED'&&b.pid===id;
-  if(b.pat==='SINGLE'||b.pat==='DOUBLE'){
-    const shots=b.pat==='DOUBLE'?[-11,11]:[0];
-    shots.forEach((oy,k)=>later(()=>{if(!alive())return;eProj.push({x:b.x,y:player.y-16+oy,vx:dir*760,vy:0,w:18,h:18,life:1.25,dmg:Math.round(16*ph)});beep(180,0.08,0.15,'sawtooth');burst(b.x,b.y-50,b.color,3,140);},0.1+k*0.04,id));
-  }else if(b.pat==='WAVE'){later(()=>{if(!alive())return;eProj.push({x:b.x+dir*10,y:player.y-16,vx:dir*700,vy:0,w:32,h:22,life:1.0,dmg:Math.round(22*ph)});shockRing(b.x,b.y-40,b.color,110);beep(200,0.12,0.2,'sawtooth');},0.1,id);}
-  else if(b.pat==='PULSE'){later(()=>{if(!alive())return;const R2=b.type==='BassTitan'?200:160;if(Math.abs(player.x-b.x)<R2)hurtPlayer(Math.round(14*ph),b.x);shockRing(b.x,b.y-40,b.color,R2);burst(b.x,b.y-40,b.color,12,300);beep(120,0.3,0.25,'sawtooth');},0.1,id);}
-  else if(b.pat==='RICOCHET'){later(()=>{if(!alive())return;eProj.push({x:b.x,y:player.y-16,vx:dir*550,vy:0,leg:400,bounce:b.phase2?3:2,life:3,dmg:Math.round(18*ph),w:14,h:14});},0.1,id);}
-  else if(b.pat==='BLACKHOLE'){const hx=b.x+(dx>0?200:-200);eProj.push({x:hx,y:b.y-100,hole:true,t:b.phase2?3.5:2.8});}
-  else if(b.pat==='TELEPORT'){later(()=>{if(!alive())return;const a=ARENAS[b.idx]||[200,WORLD_W-200];const lo=a[0]+60,hi=a[1]-60;for(let i=0;i<10;i++){const nx=lo+Math.random()*(hi-lo);if(Math.abs(nx-player.x)>200){b.x=nx;break;}}clampBoss(b);eProj.push({x:b.x,y:player.y-16,vx:dir*760,vy:0,w:18,h:18,life:1.2,dmg:16});},0.33,id);}
-  else if(b.pat==='CLONE'){later(()=>{if(!alive())return;slimes.push({x:b.x+40,y:b.y-20,vx:0,vy:0,w:26,h:24,hp:45,dir:-dir,home:b.x,t:0,stun:0,dr:0,contactCd:0,squash:0});},0.4,id);}
+  const aim=()=>{const lead=b.phase2?0.18:0.1;return Math.atan2((player.y-16+(player.vy||0)*lead)-(b.y-50),(player.x+(player.vx||0)*lead)-b.x);};
+  if(b.pat==='RUSH'){
+    // Gap-closer: la telegrafía es la línea de EMBESTIDA; al frenar escupe un abanico.
+    const dist=Math.max(1,Math.abs(dx));
+    const spd=Math.min(1300,Math.max(420,dist/0.36));
+    b.lungeVx=dir*spd;b.st='LUNGE';b.t=Math.min(0.65,dist/spd);b.flash=0.25;
+    burst(b.x,b.y-40,col,10,220);beep(240,0.2,0.25,'sawtooth');camShake=Math.max(camShake,3);
+  }else if(b.pat==='SINGLE'||b.pat==='DOUBLE'){
+    const offs=b.pat==='DOUBLE'?[-0.08,0.08]:[0];
+    offs.forEach((off,k)=>later(()=>{if(!alive())return;const a=aim()+off;
+      eProj.push({x:b.x,y:b.y-50,vx:Math.cos(a)*720,vy:Math.sin(a)*720,w:16,h:16,life:1.7,dmg:Math.round(16*ph),hell:true,col});
+      beep(180,0.08,0.15,'sawtooth');burst(b.x,b.y-50,col,3,140);},0.08+k*0.05,id));
+  }else if(b.pat==='WAVE'){later(()=>{if(!alive())return;eProj.push({x:b.x+dir*10,y:GROUND_TOP-22,vx:dir*700,vy:0,w:34,h:24,life:1.2,dmg:Math.round(22*ph),hell:true,col,ground:true});shockRing(b.x,b.y-40,col,110);beep(200,0.12,0.2,'sawtooth');},0.1,id);}
+  else if(b.pat==='PULSE'){later(()=>{if(!alive())return;const R2=b.type==='BassTitan'?200:160;if(Math.abs(player.x-b.x)<R2&&player.y>GROUND_TOP-90)hurtPlayer(Math.round(14*ph),b.x);shockRing(b.x,b.y-40,col,R2);burst(b.x,b.y-40,col,12,300);beep(120,0.3,0.25,'sawtooth');},0.1,id);}
+  else if(b.pat==='RICOCHET'){later(()=>{if(!alive())return;eProj.push({x:b.x,y:player.y-16,vx:dir*550,vy:0,leg:400,bounce:b.phase2?3:2,life:3,dmg:Math.round(18*ph),w:14,h:14,hell:true,col});},0.1,id);}
+  else if(b.pat==='FAN'){later(()=>{if(!alive())return;const n=b.phase2?7:5,a0=aim();
+    for(let i=0;i<n;i++){const a=a0+(i-(n-1)/2)*0.14;
+      eProj.push({x:b.x,y:b.y-50,vx:Math.cos(a)*390,vy:Math.sin(a)*390,w:12,h:12,life:2.1,dmg:Math.round(9*ph),hell:true,col});}
+    beep(260,0.1,0.16,'sawtooth');},0.1,id);}
+  else if(b.pat==='BLACKHOLE'){
+    // Ya no nace lejos del jugador: el vórtice aparece bajo sus pies con aviso.
+    const tx=player.x,ty=Math.max(GROUND_TOP-250,Math.min(GROUND_TOP-70,player.y-100));
+    shockRing(tx,ty,'#33cc66',190);beep(80,0.25,0.18,'sine');
+    later(()=>{if(!alive())return;eProj.push({x:tx,y:ty,hole:true,t:b.phase2?3.4:2.8});
+      shockRing(tx,ty,'#33cc66',150);burst(tx,ty,'#33cc66',14,240);},0.5,id);
+  }
+  else if(b.pat==='TELEPORT'){later(()=>{if(!alive())return;const a=ARENAS[b.idx]||[200,WORLD_W-200];const ox=b.x,oy=b.y-50;
+    const side=Math.random()<0.5?-1:1;
+    let nx=player.x+(230+Math.random()*90)*side;
+    nx=Math.max(a[0]+70,Math.min(a[1]-70,nx));
+    if(Math.abs(nx-player.x)<150)nx=player.x-220*side;
+    b.x=Math.max(a[0]+70,Math.min(a[1]-70,nx));clampBoss(b);
+    burst(ox,oy,col,12,280);shockRing(ox,oy,col,110);burst(b.x,b.y-50,col,12,280);
+    const ang=Math.atan2((player.y-16)-(b.y-50),player.x-b.x),n=b.phase2?5:3;
+    for(let i=0;i<n;i++){const aa=ang+(i-(n-1)/2)*0.14;
+      eProj.push({x:b.x,y:b.y-50,vx:Math.cos(aa)*520,vy:Math.sin(aa)*520,w:13,h:13,life:1.8,dmg:Math.round(10*ph),hell:true,col});}
+    beep(600,0.08,0.15);},0.33,id);}
+  else if(b.pat==='CLONE'){later(()=>{if(!alive())return;cloneSlime(b,40,-dir);if(b.phase2)cloneSlime(b,-40,dir);},0.4,id);}
 }

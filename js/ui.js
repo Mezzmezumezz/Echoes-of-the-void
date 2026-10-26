@@ -100,12 +100,76 @@ function initSlide(){
   try{sc.focus({preventScroll:true});}catch(_){try{sc.focus();}catch(_){}}
 }
 
+// ---------- FINAL: historia + créditos ----------
+const ENDING_CREDITS_AT=14.2;
+const ENDING_CREDIT_SPEED=42;
+const ENDING_STORY=[
+  {from:0.1,to:1.4,title:'EL VACÍO CALLA',lines:['Has roto el último compás.']},
+  {from:1.8,to:5.6,title:'EL ÚLTIMO ECO',lines:['La arena deja de latir.','Seis voces se apagan a la vez.']},
+  {from:6.0,to:9.8,title:'LO QUE QUEDÓ',lines:['No eran monstruos: eran recuerdos.','La Puerta, el Coro, el Trono...','todo cantaba con tu propio pulso.']},
+  {from:10.2,to:13.8,title:'SILENCIO',lines:['El Vacío te devuelve el cuerpo.','Por primera vez, el silencio no pesa:','te deja escuchar tu propio corazón.']}
+];
+const ENDING_CREDITS=[
+  {k:'title',text:'ECHOES OF THE VOID'},
+  {k:'role',text:'UN JUEGO DE'},
+  {k:'name',text:'web-echoes'},
+  {k:'gap'},
+  {k:'role',text:'DISEÑO Y PROGRAMACIÓN'},
+  {k:'name',text:'web-echoes'},
+  {k:'gap'},
+  {k:'role',text:'MOTOR'},
+  {k:'name',text:'HTML5 Canvas · WebAudio'},
+  {k:'name',text:'Sin dependencias · offline'},
+  {k:'gap'},
+  {k:'role',text:'SPRITES'},
+  {k:'name',text:'Kenney Pixel Platformer (CC0)'},
+  {k:'name',text:'Alien Boss Set (CC0)'},
+  {k:'gap'},
+  {k:'role',text:'MÚSICA'},
+  {k:'name',text:'Pistas locales del proyecto'},
+  {k:'gap'},
+  {k:'role',text:'INSPIRACIÓN'},
+  {k:'name',text:'Metroidvania + rhythm-action'},
+  {k:'gap'},
+  {k:'title',text:'GRACIAS POR JUGAR'}
+];
+function startEnding(){
+  if(state==='ending')return;
+  state='ending';endingT=0;
+  S.endingSeen=true;save();
+  eProj=[];notes=[];noteCombo=0;attackHeld=false;swingT=0;noteVis=0;
+  for(const k in keys)keys[k]=false;
+  if(player){player.vx=0;player.vy=0;}
+  const hud=$('hud');if(hud)hud.classList.add('hidden');
+  const lanes=$('lanes');if(lanes)lanes.classList.remove('on');
+  try{if(typeof Music!=='undefined')Music.play('menu');}catch(_){}
+  beep(220,0.5,0.18,'sine');beep(330,0.4,0.12,'sine');
+}
+function endingAdvance(){
+  if(state!=='ending')return;
+  if(endingT<ENDING_CREDITS_AT){endingT=ENDING_CREDITS_AT;beep(660,0.08,0.12);}
+  else finishEnding();
+}
+function finishEnding(){
+  if(state!=='ending')return;
+  state='menu';
+  const hud=$('hud');if(hud)hud.classList.remove('hidden');
+  showOverlay('menu',true);
+  save();
+  try{if(typeof Music!=='undefined')Music.play('menu');}catch(_){}
+}
+
 // ---------- INPUT (FIX Esc + FIX J) ----------
 const keys={};
 function onKeyDown(e){
   const t=$('title');if(t&&!t.classList.contains('hidden'))return; // el slider gestiona sus teclas
   if(['Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();
-  if(e.repeat)return;keys[e.code]=true;try{ac();}catch(_){}
+  if(e.repeat)return;
+  if(state==='ending'){
+    if(e.code==='Enter'||e.code==='Escape'||e.code==='Space'||e.code==='KeyJ'){e.preventDefault();endingAdvance();}
+    return;
+  }
+  keys[e.code]=true;try{ac();}catch(_){}
   if(e.code==='Space'||e.code==='KeyW')jbuf=0.12;
   // Tutorial simple: se cierra con Enter/J/Espacio/Esc
   if(tutHowOpen){
