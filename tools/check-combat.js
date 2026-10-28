@@ -139,6 +139,7 @@ for(const def of BOSS_DEFS){
   b.st='IDLE';b.t=0;b.pat='AIR';b.pid=0;b.phase2=false;
   firePattern(b,player.x-b.x);
   assert(b.st==='AIR','no arranca la fase aérea: '+def.type);
+  assert(b.airMax>=4.5,'la fase aérea sigue siendo demasiado corta: '+def.type);
   const hpAir=b.hp;
   for(let i=0;i<45;i++){advance(1000/60);update(1/60);player.hp=999999;}
   assert(b.y<GROUND_TOP-120,'el boss no sube: '+def.type);
@@ -148,8 +149,9 @@ for(const def of BOSS_DEFS){
   const eAir=eProj.length;
   for(let i=0;i<100;i++){advance(1000/60);update(1/60);player.hp=999999;}
   assert(eProj.length>0||eAir>0,'la fase aérea no dispara: '+def.type);
+  assert(b.st==='AIR'&&b.airAtk>=2,'la fase aérea no es un bullet hell largo: '+def.type);
   let landed=false;
-  for(let i=0;i<180;i++){advance(1000/60);update(1/60);player.hp=999999;if(b.st!=='AIR'){landed=true;break;}}
+  for(let i=0;i<900;i++){advance(1000/60);update(1/60);player.hp=999999;if(b.st!=='AIR'){landed=true;break;}}
   assert(landed&&b.st==='IDLE'&&b.y===b.surfY,'el boss no vuelve a una superficie: '+def.type);
 
   // TTK pasivo: mantener J desde lejos, sin esquivar ni tocar fichas.
@@ -159,14 +161,14 @@ for(const def of BOSS_DEFS){
   wi=2;tryLockBosses();
   keys['KeyJ']=true;attackHeld=true;
   let ttk=0;
-  for(let i=0;i<2100;i++){
+  for(let i=0;i<9000;i++){
     advance(1000/60);update(1/60);
     iframes=999;player.hp=999999;
     player.face=Math.sign(b2.x-player.x)||1;
     if(b2.dead){ttk=i/60;break;}
   }
   keys['KeyJ']=false;attackHeld=false;iframes=0;
-  assert(ttk>0,'el disparo rápido no mata a '+def.type+' en 35s (¿boss roto?)');
+  assert(ttk>0,'el disparo rápido no mata a '+def.type+' en 150s (¿boss roto?)');
   killTimes[def.type]=ttk.toFixed(1)+'s';
   assert(ttk>3.5,'demasiado fácil: '+def.type+' muere en '+ttk.toFixed(1)+'s con disparo mantenido');
 }
@@ -214,6 +216,14 @@ player.en=100;
 special();
 advance(1000/60);update(1/60);
 assert(!eProj.some(p=>Math.abs(p.x-player.x)<40&&Math.abs(p.y-(player.y-16))<6&&p.life>0),'boss_blackhole no limpia balas');
+
+// 4.5) Ráfaga amarilla ligada al beat: 3/2/1 proyectiles, no un chorro constante.
+resetWorld();state='play';pProj=[];atkCd=0;wi=2;
+Rhythm.lastKick=performance.now()/1000;
+attack();assert(pProj.length===3,'EchoShot PERFECT no dispara 3 proyectiles');
+pProj=[];atkCd=0;Rhythm.lastKick=performance.now()/1000-Rhythm.kickGap/2;
+attack();assert(pProj.length===1,'EchoShot MISS no reduce la ráfaga a 1 proyectil');
+assert(WEAPONS[2].cd>=0.2,'la ráfaga sigue disparando demasiado rápido');
 
 // 5) Final: el Primordial dispara la cinemática (historia + créditos) y se sale al menú.
 S.bosses={};S.endingSeen=false;resetWorld();state='play';player.hp=999999;

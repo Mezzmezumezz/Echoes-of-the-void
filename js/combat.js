@@ -126,7 +126,12 @@ function attack(fromHold){
   if(w.kind==='wave'){
     pProj.push({x:player.x+player.face*30,y:player.y-16,vx:player.face*640,vy:0,w:26,h:20,life:w.range/640,dmg:Math.round(w.base*ev.m*comboM),kind:'wave',weapon:w.name,pierce:true,hits:[]});
   }else if(w.kind==='shot'){
-    for(let i=-1;i<=1;i++)pProj.push({x:player.x+player.face*20,y:player.y-16+i*4,vx:player.face*980,vy:i*70,w:10,h:8,life:w.range/980,dmg:Math.round(w.base*ev.m*comboM),kind:'shot',weapon:w.name,hits:[]});
+    // La ráfaga premia el beat: PERFECT 3 proyectiles, GOOD 2, MISS 1.
+    const n=ev.r==='PERFECT'?3:ev.r==='GOOD'?2:1;
+    for(let i=0;i<n;i++){
+      const off=n===1?0:i-(n-1)/2;
+      pProj.push({x:player.x+player.face*20,y:player.y-16+off*4,vx:player.face*980,vy:off*70,w:10,h:8,life:w.range/980,dmg:Math.round(w.base*ev.m*comboM),kind:'shot',weapon:w.name,hits:[]});
+    }
   }else{
     const hx=player.x+player.face*(8+range/2);
     const hitR={x:player.face>0?player.x+8:player.x-8-range,y:player.y-48,w:range,h:60};
@@ -414,7 +419,7 @@ function weightedPick(opts,exclude){
 function choosePattern(b,dx,adx){
   b.atkCount=(b.atkCount||0)+1;
   // Patrón aéreo: cada 6 ataques (5 en fase 2) sube fuera de alcance y bombardea.
-  const airEvery=b.phase2?5:6;
+  const airEvery=b.phase2?9:10;
   if(b.atkCount%airEvery===0){b.pat='AIR';return;}
   // Firma única cada N ataques (en fase 2 cae un ataque antes).
   const every=Math.max(2,(b.sigEvery||4)-(b.phase2?1:0));
@@ -439,84 +444,137 @@ function choosePattern(b,dx,adx){
 function startAirBoss(b){
   const a=ARENAS[b.idx]||[0,WORLD_W];
   clearDelayedFor(b.pid);b.pid=++patId;
-  b.st='AIR';b.airT=0;b.airAtk=0;b.airHit=false;
-  b.airMax=b.phase2?2.3:2.5;
+  b.st='AIR';b.airT=0;b.airAtk=0;b.airHit=false;b.airLanding=false;
+  // Fase aérea larga: set-piece de bullet hell; escala por jefe y fase 2.
+  b.airMax=(4.8+0.55*b.idx)*(b.phase2?1.4:1);
+  b.airEvery=Math.max(0.34,(b.phase2?0.50:0.62)-0.02*b.idx);
   b.airY=GROUND_TOP-300;
   b.airStartY=b.y;
-  const side=Math.random()<0.5?-1:1;
-  b.airX=Math.max(a[0]+90,Math.min(a[1]-90,player.x+side*180));
-  b.airLandY=bossSurfaceUnder({x:b.airX,y:b.airY,w:b.w});
+  b.airAmp=Math.min(220,Math.max(60,(a[1]-a[0])/2-150));
+  b.airCenter=Math.max(a[0]+b.airAmp+70,Math.min(a[1]-b.airAmp-70,player.x+(Math.random()<0.5?-120:120)));
+  b.airSweep=0.55+0.05*b.idx;b.airPhase=Math.random()*6.283;
+  b.airLandY=bossSurfaceUnder({x:b.airCenter,y:b.airY,w:b.w});
   b.flash=0.18;b.evadeT=0;
   // Sin fichas mientras está fuera de alcance: la ventana es de esquiva, no de DPS.
   notes=[];noteCombo=0;
-  showBanner('AIRE','¡FUERA DE ALCANCE!','#33e6ff',1.4);
+  showBanner('AIRE','BULLET HELL · ESQUIVA','#33e6ff',1.6);
   screenFlash('#33e6ff',0.10);
   beep(520,0.2,0.14,'sine');beep(780,0.3,0.1,'sine');
 }
 function updateAirBoss(b,dt){
   b.airT+=dt;
   const a=ARENAS[b.idx]||[0,WORLD_W];
-  b.x+=(b.airX-b.x)*Math.min(1,dt*7);
-  b.x=Math.max(a[0]+50,Math.min(a[1]-50,b.x));
-  const rise=0.5,fall=0.55,fallStart=Math.max(rise+0.2,(b.airMax||2.5)-fall);
+  const rise=0.65,fall=0.8,fallStart=Math.max(rise+0.3,(b.airMax||5)-fall);
+  if(b.airT<fallStart){
+    const weave=(b.airCenter||b.x)+Math.sin(b.airT*(b.airSweep||0.6)+(b.airPhase||0))*(b.airAmp||0);
+    b.x+=(weave-b.x)*Math.min(1,dt*5);
+    b.x=Math.max(a[0]+60,Math.min(a[1]-60,b.x));
+  }else if(!b.airLanding){
+    // Congela el barrido al caer y elige superficie en el x real de aterrizaje.
+    b.airLanding=true;b.airLandY=bossSurfaceUnder({x:b.x,y:b.airY,w:b.w});
+  }
   const y0=(b.airStartY===undefined?GROUND_TOP:b.airStartY),y1=(b.airLandY===undefined?GROUND_TOP:b.airLandY);
   if(b.airT<rise){const k=b.airT/rise;b.y=y0+(b.airY-y0)*(1-Math.pow(1-k,3));}
   else if(b.airT<fallStart)b.y=b.airY;
   else{const k=Math.min(1,(b.airT-fallStart)/fall);b.y=b.airY+(y1-b.airY)*k*k;}
-  if(b.airAtk===0&&b.airT>=0.65){b.airAtk=1;fireAirAttack(b,0);}
-  if(b.airAtk===1&&b.airT>=1.35){b.airAtk=2;fireAirAttack(b,1);}
-  if(b.airT>=(b.airMax||2.5)){
-    b.st='IDLE';b.t=b.phase2?0.45:0.7;b.y=y1;b.surfY=y1;b.airT=0;b.airAtk=0;b.airHit=false;
+  // Ráfagas periódicas mientras esté arriba (la última cae antes de descender).
+  const first=0.85;
+  while(b.airAtk<80&&b.airT>=first+b.airAtk*(b.airEvery||0.6)&&first+b.airAtk*(b.airEvery||0.6)<fallStart-0.12){
+    fireAirAttack(b,b.airAtk);b.airAtk++;
+  }
+  if(b.airT>=(b.airMax||5)){
+    b.st='IDLE';b.t=b.phase2?0.45:0.7;b.y=y1;b.surfY=y1;b.airT=0;b.airAtk=0;b.airHit=false;b.airLanding=false;
     b.flash=0.18;b.contactCd=Math.max(b.contactCd||0,0.5);
     shockRing(b.x,b.y-20,b.color,150);burst(b.x,b.y-20,b.color,12,260);camShake=Math.max(camShake,3);
     beep(160,0.14,0.16,'square');
   }
 }
-// Cada jefe tiene su firma aérea: nieve de escombros, orbes, fan o anillo.
+// Bullet hell aéreo: cada jefe rota 3 patrones propios y acelera durante la fase.
 function fireAirAttack(b,k){
-  const sx=b.x,sy=b.y-40,col=b.color||'#f66',g=bossScale(b),ph=(b.phase2?1.22:1)*g.dmg;
+  const sx=b.x,sy=b.y-40,col=b.color||'#f66',g=bossScale(b);
+  const ramp=Math.min(1,(b.airT||0)/(b.airMax||5));
   const easy=S.difficulty==='easy',hard=S.difficulty==='hard';
-  const spd=(easy?260:hard?400:340)*g.spd*(b.phase2?1.08:1);
+  const spd=(easy?250:hard?390:330)*g.spd*(b.phase2?1.08:1)*(0.9+0.2*ramp);
+  const ph=(b.phase2?1.22:1)*g.dmg;
   const dmg=n=>Math.round(n*ph*(easy?0.8:hard?1.12:1));
+  const cnt=n=>Math.max(2,Math.round(n*g.cnt*(b.phase2?1.12:1)*(0.9+0.2*ramp)));
   const aim=Math.atan2((player.y-16)-sy,player.x-sx);
-  const shot=(a,s,w,d,life)=>{eProj.push({x:sx,y:sy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,w:w||12,h:w||12,life:life||2.4,dmg:d,hell:true,col});};
-  if(k===0){
-    if(b.type==='BassTitan'||b.type==='EchoPrimordial'){
-      // LLUVIA: escombros alrededor del jugador; moverse deja un hueco.
-      const n=Math.max(4,Math.round((b.phase2?7:5)*g.cnt));
-      for(let i=0;i<n;i++)eProj.push({x:player.x+(i-(n-1)/2)*72,y:sy-150,vx:0,vy:390,w:15,h:15,life:2.4,dmg:dmg(10),hell:true,col});
-      shockRing(sx,sy,col,170);beep(90,0.3,0.22,'sawtooth');
-    }else if(b.type==='ChoirWarden'||b.type==='VoidHarvester'){
-      // CORO: orbes que caen y estallan en abanico dirigido.
-      const n=b.phase2?4:3;
-      for(let i=0;i<n;i++)eProj.push({x:player.x+(i-(n-1)/2)*130,y:sy-150,vx:0,vy:190,w:18,h:18,life:2.8,dmg:dmg(8),hell:true,col,fuse:0.7,split:b.phase2?5:4});
-      beep(240,0.25,0.18,'sine');
-    }else{
-      // ABANICO aéreo apuntado al jugador.
-      const n=b.phase2?5:4;
-      for(let i=0;i<n;i++)shot(aim+(i-(n-1)/2)*0.18,spd,13,dmg(10));
-      beep(300,0.12,0.16,'sawtooth');
+  const shot=(x,y,a,s,w,d,life=2.4)=>{eProj.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,w,h:w,life,dmg:d,hell:true,col});};
+  const fan=(x,y,a,n,spread,s,w,d,life=2.4)=>{for(let i=0;i<n;i++)shot(x,y,a+(i-(n-1)/2)*spread,s,w,d,life);};
+  const ring=(x,y,n,s,w,d,off=Math.random()*6.283,life=2.6)=>{for(let i=0;i<n;i++)shot(x,y,off+i/n*6.283,s,w,d,life);};
+  const rain=(n,gap,vy,w,d,yOff=160)=>{for(let i=0;i<n;i++)eProj.push({x:player.x+(i-(n-1)/2)*gap,y:sy-yOff,vx:0,vy,w,h:w,life:2.6,dmg:d,hell:true,col});};
+  const wave=dir=>eProj.push({x:sx+dir*20,y:GROUND_TOP-18,vx:dir*(250+30*b.idx)*g.spd,vy:0,w:34,h:26,life:2.2,dmg:dmg(14),hell:true,col,ground:true});
+  switch(b.type){
+    case 'Resonator':{
+      const t=k%3;
+      if(t===0){const n=cnt(3);fan(sx-30,sy,aim,n,0.2,spd,12,dmg(9));fan(sx+30,sy,aim,n,0.2,spd,12,dmg(9));}
+      else if(t===1){ring(sx,sy,cnt(10),spd,11,dmg(8));ring(sx,sy,cnt(7),spd*0.62,13,dmg(8),0.35);}
+      else{fan(sx,sy,aim,Math.max(3,cnt(4)),0.07,spd*1.65,8,dmg(10),1.8);ring(sx,sy,cnt(6),spd*0.55,12,dmg(7),aim);}
+      beep(330,0.12,0.12,'sawtooth');break;
     }
-  }else{
-    if(b.type==='VoidHarvester'){
-      // HORIZONTE: agujero bajo el jugador + anillo desde el aire.
-      const tx=player.x,ty=Math.max(GROUND_TOP-250,Math.min(GROUND_TOP-70,player.y-100));
-      shockRing(tx,ty,'#33cc66',190);
-      eProj.push({x:tx,y:ty,hole:true,t:b.phase2?3:2.4});
-      for(let i=0;i<8;i++)shot(i/8*6.283,spd*0.85,11,dmg(8));
-      beep(70,0.5,0.22,'sine');
-    }else if(b.type==='EchoPrime'){
-      // CRUZ: abanico rápido y estrecho.
-      const n=Math.max(4,Math.round((b.phase2?7:5)*g.cnt));
-      for(let i=0;i<n;i++)shot(aim+(i-(n-1)/2)*0.13,spd*1.25,12,dmg(10));
-      beep(1200,0.08,0.12);
-    }else{
-      // ANILLO radial desde el aire.
-      const n=Math.max(8,Math.round(((b.phase2?14:10)+(b.idx>=3?2:0))*Math.sqrt(g.cnt))),off=Math.random()*6.283;
-      for(let i=0;i<n;i++)shot(off+i/n*6.283,spd*0.9,12,dmg(8));
-      beep(160,0.2,0.18,'sawtooth');
+    case 'BassTitan':{
+      const t=k%3;
+      if(t===0)rain(cnt(5),72,430,16,dmg(10));
+      else if(t===1){wave(-1);wave(1);rain(Math.max(2,cnt(3)),110,380,15,dmg(9),130);}
+      else{const n=Math.max(2,cnt(3));for(let i=0;i<n;i++)eProj.push({x:player.x+(i-(n-1)/2)*150,y:sy-120,vx:(Math.random()-0.5)*50,vy:340,w:26,h:26,life:2.8,dmg:dmg(13),hell:true,col});}
+      beep(90,0.3,0.18,'sawtooth');break;
+    }
+    case 'ChoirWarden':{
+      const t=k%3;
+      if(t===0){const n=cnt(3);for(let i=0;i<n;i++)eProj.push({x:player.x+(i-(n-1)/2)*130,y:sy-150,vx:0,vy:180,w:18,h:18,life:2.9,dmg:dmg(8),hell:true,col,fuse:0.65,split:4+(b.phase2?1:0)});}
+      else if(t===1){const n=cnt(4);fan(sx-44,sy,aim,n,0.16,spd*0.9,12,dmg(8));fan(sx+44,sy,aim,n,0.16,spd*0.9,12,dmg(9));ring(sx,sy,cnt(6),spd*0.5,13,dmg(6),aim);}
+      else{const n=cnt(8);for(let i=0;i<n;i++){const a=i/n*6.283;eProj.push({x:sx+Math.cos(a)*50,y:sy+Math.sin(a)*30,vx:Math.cos(a)*spd*0.6,vy:Math.sin(a)*spd*0.6,w:16,h:16,life:3,dmg:dmg(8),hell:true,col,fuse:0.85,split:3});}}
+      beep(240,0.2,0.15,'sine');break;
+    }
+    case 'VoidHarvester':{
+      const t=k%3;
+      if(t===0){
+        const ty=Math.max(GROUND_TOP-240,Math.min(GROUND_TOP-80,player.y-100));
+        eProj.push({x:player.x,y:ty,hole:true,t:b.phase2?3.2:2.6});
+        ring(sx,sy,cnt(10),spd*0.85,12,dmg(8));
+      }else if(t===1){
+        ring(sx,sy,cnt(12),spd,11,dmg(7),b.airT*1.4);
+        ring(sx,sy,cnt(8),spd*0.7,13,dmg(8),-b.airT*1.1,2.8);
+      }else{
+        const ty=Math.max(GROUND_TOP-240,Math.min(GROUND_TOP-80,player.y-100));
+        eProj.push({x:player.x-120,y:ty,hole:true,t:2.4});
+        if(b.phase2)eProj.push({x:player.x+120,y:ty,hole:true,t:2.4});
+        fan(sx,sy,aim,Math.max(4,cnt(5)),0.1,spd*1.3,9,dmg(10),2);
+      }
+      beep(70,0.35,0.18,'sine');break;
+    }
+    case 'EchoPrime':{
+      const t=k%3;
+      if(t===0){
+        for(let j=0;j<4;j++)shot(sx,sy,aim+j*Math.PI/2,spd*1.15,12,dmg(9),2.2);
+        ring(sx,sy,cnt(8),spd*0.6,12,dmg(7),aim+0.4);
+      }else if(t===1){
+        fan(sx,sy,aim,Math.max(3,cnt(5)),0.1,spd*1.35,10,dmg(10),2);
+        fan(sx,sy,aim,Math.max(3,cnt(4)),0.3,spd*0.9,12,dmg(7),2.4);
+      }else{
+        ring(sx,sy,cnt(10),spd,10,dmg(8),aim+0.2);
+        ring(sx,sy,cnt(7),spd*0.65,12,dmg(7),aim-0.2,2.8);
+        fan(sx,sy,aim,Math.max(2,cnt(3)),0.12,spd*1.5,8,dmg(9),1.8);
+      }
+      beep(1200,0.08,0.12);break;
+    }
+    default:{
+      const t=k%3;
+      if(t===0){rain(cnt(7),64,420,15,dmg(10));ring(sx,sy,cnt(12),spd*0.8,12,dmg(8),b.airT*1.2);}
+      else if(t===1){
+        const ty=Math.max(GROUND_TOP-240,Math.min(GROUND_TOP-80,player.y-100));
+        eProj.push({x:player.x,y:ty,hole:true,t:3});
+        ring(sx,sy,cnt(10),spd*0.9,11,dmg(8),b.airT*1.6);
+        if(b.phase2)ring(sx,sy,cnt(8),spd*0.65,12,dmg(7),-b.airT*1.2,2.8);
+      }else{
+        fan(sx,sy,aim,Math.max(4,cnt(6)),0.12,spd*1.2,10,dmg(9),2);
+        wave(-1);wave(1);
+        ring(sx,sy,cnt(9),spd*0.7,13,dmg(8),aim+0.5);
+      }
+      beep(150,0.25,0.2,'sawtooth');break;
     }
   }
+  if(eProj.length>230)eProj.splice(0,eProj.length-230);
 }
 function cloneSlime(b,ox,dir){
   if(slimes.length>=22)return;
