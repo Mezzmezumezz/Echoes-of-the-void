@@ -28,13 +28,13 @@ const BOSS_DEFS=[
   speed:40,keep:220,tele:0.42,idle:1.3,stunRes:2600,sigName:'CASCADA',sigEvery:4},
  {type:'BassTitan',x:4800,hp:560,bpm:[88,115],color:'#3366ff',contact:15,reward:'boss_ricochet',pair:'Resonator',spr:'mouth',sw:112,sh:112,hue:0,fps:8,
   speed:26,keep:120,tele:0.48,idle:1.4,stunRes:4800,sigName:'TERREMOTO',sigEvery:3},
- {type:'ChoirWarden',x:7000,hp:540,bpm:[102,145],color:'#b333ff',contact:16,reward:'boss_blackhole',pair:'VoidHarvester',spr:'mouthOpen',sw:124,sh:124,hue:190,fps:9,
+ {type:'ChoirWarden',x:7000,hp:640,bpm:[102,145],color:'#b333ff',contact:16,reward:'boss_blackhole',pair:'VoidHarvester',spr:'mouthOpen',sw:124,sh:124,hue:190,fps:9,
   speed:60,keep:240,tele:0.32,idle:1.05,stunRes:3200,sigName:'SERMÓN',sigEvery:3},
- {type:'VoidHarvester',x:9200,hp:680,bpm:[90,128],color:'#33cc66',contact:16,reward:'boss_blackhole',pair:'ChoirWarden',spr:'ufo',sw:160,sh:66,hue:0,fps:10,
+ {type:'VoidHarvester',x:9200,hp:760,bpm:[90,128],color:'#33cc66',contact:16,reward:'boss_blackhole',pair:'ChoirWarden',spr:'ufo',sw:160,sh:66,hue:0,fps:10,
   speed:46,keep:220,tele:0.36,idle:1.15,stunRes:3600,sigName:'HORIZONTE',sigEvery:3},
- {type:'EchoPrime',x:11600,hp:850,bpm:[110,160],color:'#ffe633',contact:18,reward:'boss_teleport',pair:null,spr:'eyeVoid',sw:136,sh:108,hue:0,fps:8,
+ {type:'EchoPrime',x:11600,hp:920,bpm:[110,160],color:'#ffe633',contact:18,reward:'boss_teleport',pair:null,spr:'eyeVoid',sw:136,sh:108,hue:0,fps:8,
   speed:120,keep:180,tele:0.24,idle:0.78,stunRes:2800,sigName:'DESTELLO',sigEvery:3},
- {type:'EchoPrimordial',x:14800,hp:1100,bpm:[118,168],color:'#cc33cc',contact:20,reward:'boss_clone',pair:null,spr:'ufo',sw:190,sh:80,hue:280,fps:13,
+ {type:'EchoPrimordial',x:14800,hp:1350,bpm:[118,168],color:'#cc33cc',contact:20,reward:'boss_clone',pair:null,spr:'ufo',sw:190,sh:80,hue:280,fps:13,
   speed:80,keep:200,tele:0.3,idle:0.85,stunRes:4200,sigName:'APOCALIPSIS',sigEvery:3}];
 const ARENAS=[[2200,3100],[4300,5300],[6500,7500],[8700,9700],[11100,12100],[14200,15400]];
 // Rutas: escaleras de 50-60px por paso (salto base ~84px), con atajos altos y recovecos.

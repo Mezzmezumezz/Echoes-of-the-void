@@ -115,6 +115,12 @@ for(const def of BOSS_DEFS){
   dealBossDmg(b,1);
   assert(b.phase2,'no entra en fase 2: '+def.type);
   assert(Rhythm.bpm===b.bpm[1],'BPM de fase 2 incorrecto: '+def.type);
+  assert(b.st==='TRANS','la fase 2 no arranca su transición: '+def.type);
+  const hpTrans=b.hp;
+  dealBossDmg(b,50);
+  assert(b.hp===hpTrans,'la transición de fase no es invulnerable: '+def.type);
+  updatePhaseTransition(b,2);
+  assert(b.st==='IDLE','la transición de fase no termina: '+def.type);
   b.st='IDLE';b.t=999;
   for(let i=0;i<30;i++){advance(1000/60);update(1/60);player.hp=999999;}
   eProj=[];notes=[];
@@ -144,7 +150,7 @@ for(const def of BOSS_DEFS){
   assert(eProj.length>0||eAir>0,'la fase aérea no dispara: '+def.type);
   let landed=false;
   for(let i=0;i<180;i++){advance(1000/60);update(1/60);player.hp=999999;if(b.st!=='AIR'){landed=true;break;}}
-  assert(landed&&b.st==='IDLE'&&b.y===GROUND_TOP,'el boss no vuelve al suelo: '+def.type);
+  assert(landed&&b.st==='IDLE'&&b.y===b.surfY,'el boss no vuelve a una superficie: '+def.type);
 
   // TTK pasivo: mantener J desde lejos, sin esquivar ni tocar fichas.
   resetWorld();state='play';
@@ -165,7 +171,36 @@ for(const def of BOSS_DEFS){
   assert(ttk>3.5,'demasiado fácil: '+def.type+' muere en '+ttk.toFixed(1)+'s con disparo mantenido');
 }
 
-// 2) Habilidades de boss que antes no hacían nada.
+// 2) Plataformas: el boss salta a una y puede romperla en fase 2.
+S.bosses={};resetWorld();state='play';player.hp=999999;
+const bl=bosses[0],pi=PLATS.findIndex(p=>p[2]===120),pl=PLATS[pi],pTop=pl[1]-pl[3]/2;
+player.x=pl[0];player.y=pTop;player.onFloor=true;
+bl.x=pl[0]-160;bl.y=GROUND_TOP;bl.surfY=GROUND_TOP;bl.phase2=false;bl.st='IDLE';
+let leapPicked=false;
+for(let i=0;i<40&&!leapPicked;i++){bl.atkCount=1;choosePattern(bl,0,200);if(bl.pat==='LEAP'||bl.pat==='SLAM')leapPicked=true;}
+assert(leapPicked,'el boss no elige saltar a la plataforma del jugador');
+planBossLeap(bl,{i:pi,x:pl[0],y:pTop,w:pl[2],l:pl[0]-pl[2]/2,r:pl[0]+pl[2]/2});
+startBossLeap(bl);
+for(let i=0;i<80&&bl.st==='LEAP';i++){advance(1000/60);updateBossLeap(bl,1/60);draw();}
+assert(bl.st==='IDLE'&&Math.abs(bl.x-pl[0])<0.5&&Math.abs(bl.y-pTop)<0.5,'el boss no aterriza en la plataforma');
+breakPlatform(pi,0.2,2.8);
+assert(platState[pi]&&platState[pi].w>0&&!isPlatBroken(pi),'el aviso de rotura no mantiene la plataforma sólida');
+updatePlatforms(0.25);
+assert(isPlatBroken(pi),'la plataforma no se rompe tras el aviso');
+assert(!solids().some(s=>Math.abs(s.x-(pl[0]-pl[2]/2))<0.5&&Math.abs(s.y-pTop)<0.5),'la plataforma rota sigue siendo sólida');
+resetWorld();
+
+// 3) Piso corrosivo: el Primordial en fase 2 castiga quedarse abajo.
+S.bosses={};resetWorld();state='play';
+const fb=bosses.find(b=>b.idx===5);
+fb.locked=true;fb.phase2=true;fb.st='STUNNED';fb.t=99;
+player.x=fb.x;player.y=GROUND_TOP;player.onFloor=true;player.hp=999;iframes=0;
+const hpFloor=player.hp;
+for(let i=0;i<80;i++){advance(1000/60);update(1/60);}
+assert(player.hp<hpFloor,'el piso corrosivo no daña en fase 2 del jefe final');
+resetWorld();
+
+// 4) Habilidades de boss que antes no hacían nada.
 resetWorld();state='play';
 S.skills.boss_ricochet=true;
 pProj.push({x:player.x,y:player.y-16,vx:980,vy:0,w:10,h:8,life:0.001,dmg:1,kind:'shot',weapon:'EchoShot',hits:[]});
@@ -180,7 +215,7 @@ special();
 advance(1000/60);update(1/60);
 assert(!eProj.some(p=>Math.abs(p.x-player.x)<40&&Math.abs(p.y-(player.y-16))<6&&p.life>0),'boss_blackhole no limpia balas');
 
-// 3) Final: el Primordial dispara la cinemática (historia + créditos) y se sale al menú.
+// 5) Final: el Primordial dispara la cinemática (historia + créditos) y se sale al menú.
 S.bosses={};S.endingSeen=false;resetWorld();state='play';player.hp=999999;
 const bFinal=bosses.find(x=>x.type==='EchoPrimordial');
 assert(!!bFinal,'no se creó el jefe final');

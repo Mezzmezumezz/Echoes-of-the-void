@@ -8,6 +8,7 @@ let banner=null,flashT=0,flashCol='#fff';
 let lastKickSeen=0,noteCombo=0,noteBest=0;
 let doors=[];
 let shards=[],locks=[];
+let platState={},floorDmgT=0;
 let atkCd=0,comboIdx=0,comboT=0,dashT=0,dashCd=0,iframes=0,coyote=0,jbuf=0,jumps=0,deadT=0;
 let attackHeld=false,swingT=0,swingKind='',switchT=0,noteVis=0;
 let camShakeT=0,camShake=0;
@@ -23,12 +24,13 @@ function resetWorld(){
   player=newPlayer();slimes=[];bosses=[];pProj=[];eProj=[];parts=[];floaters=[];notes=[];fx=[];banner=null;flashT=0;lastKickSeen=Rhythm.kickCount;noteCombo=0;delayed=[];_warnArena=-1;
   doors=[];shards=[];locks=[];wi=0;atkCd=0;comboIdx=0;comboT=0;dashT=0;dashCd=0;iframes=0;deadT=0;camShakeT=0;camShake=0;currentArea=-1;areaT=0;
   attackHeld=false;swingT=0;swingKind='';switchT=0;noteVis=0;
+  platState={};floorDmgT=0;
   ARENAS.forEach(([a,b])=>{doors.push({x:a,open:true});doors.push({x:b,open:true});});
   SHARD_DEFS.forEach(([x,y],i)=>{if(!S.shards['sh'+i])shards.push({id:'sh'+i,x,y,t:Math.random()*6});});
   LOCK_DEFS.forEach(L=>{if(!S.locks[L.id])locks.push(Object.assign({done:false},L,{y:780}));});
   SLIME_DEFS.forEach(([x,type])=>{const st=SLIME_TYPES[type]||SLIME_TYPES.slime;
     slimes.push({x,y:700,vx:0,vy:0,w:st.w,h:st.h,hp:st.hp,maxhp:st.hp,dir:1,home:x,t:0,stun:0,dr:0,contactCd:0,squash:0,type,color:st.color,hue:st.hue,spd:st.spd,chase:st.chase,contact:st.contact,jump:st.jump});});
-  BOSS_DEFS.forEach((d,i)=>{if(!S.bosses[d.type])bosses.push(Object.assign({},d,{y:GROUND_TOP,vx:0,vy:0,w:52,h:84,maxhp:d.hp,hpAnim:d.hp,st:'IDLE',t:0.5,phase2:false,contactCd:0,stun:0,stunDr:0,flash:0,hitT:0,idx:i,spiral:Math.random()*6.28,locked:false,atkCount:0,lastPat:'',pid:0,dashCd:0.9,farT:0,evadeCd:0.8,evadeT:0,evadeDir:1,strafeT:0,strafeDir:1,lungeVx:0,airT:0,airY:GROUND_TOP,airX:d.x,airMax:0,airAtk:0,airHit:false}));});
+  BOSS_DEFS.forEach((d,i)=>{if(!S.bosses[d.type])bosses.push(Object.assign({},d,{y:GROUND_TOP,surfY:GROUND_TOP,leapToX:d.x,leapToY:GROUND_TOP,leapPlat:null,slam:false,vx:0,vy:0,w:52,h:84,maxhp:d.hp,hpAnim:d.hp,st:'IDLE',t:0.5,phase2:false,contactCd:0,stun:0,stunDr:0,flash:0,hitT:0,idx:i,spiral:Math.random()*6.28,locked:false,atkCount:0,lastPat:'',pid:0,dashCd:0.9,farT:0,evadeCd:0.8,evadeT:0,evadeDir:1,strafeT:0,strafeDir:1,lungeVx:0,airT:0,airY:GROUND_TOP,airX:d.x,airMax:0,airAtk:0,airHit:false}));});
   updateDoorState();
   if(typeof syncWeapon==='function')syncWeapon();
 }
@@ -109,19 +111,61 @@ function updateDoorState(){
   });
 }
 function solids(){
-  const s=PLATS.map(p=>({x:p[0]-p[2]/2,y:p[1]-p[3]/2,w:p[2],h:p[3]}));
+  const s=[];
+  PLATS.forEach((p,i)=>{if(!isPlatBroken(i))s.push({x:p[0]-p[2]/2,y:p[1]-p[3]/2,w:p[2],h:p[3]});});
   s.push({x:-200,y:GROUND_TOP,w:WORLD_W+400,h:200});
   s.push({x:-30,y:200,w:20,h:900});s.push({x:WORLD_W+10,y:200,w:20,h:900});
   // Puerta gruesa (24px) para evitar túnel con dash a 680px/s + lag (rdt 0.05 = 34px/frame)
   doors.forEach(d=>{if(!d.open)s.push({x:d.x-12,y:622,w:24,h:256});});
   return s;
 }
+// Plataformas frágiles: primero avisan (siguen sólidas) y luego caen unos segundos.
+function isPlatBroken(i){const s=platState[i];return !!(s&&s.w<=0);}
+function breakPlatform(i,warn,down){
+  if(i===undefined||i===null||platState[i])return;
+  platState[i]={w:warn||0.55,d:down||2.8};
+  const p=PLATS[i];if(p)burst(p[0],p[1]-p[3]/2,'#f66',8,180);
+  beep(140,0.1,0.14,'square');
+}
+function updatePlatforms(dt){
+  for(const k in platState){
+    const s=platState[k];
+    if(s.w>0)s.w-=dt;
+    else{s.d-=dt;if(s.d<=0)delete platState[k];}
+  }
+}
+// Plataforma bajo los pies del jugador (para apuntar saltos/ataques del boss).
+function platformUnderPlayer(){
+  if(!player)return null;
+  for(let i=PLATS.length-1;i>=0;i--){
+    if(isPlatBroken(i))continue;
+    const p=PLATS[i],top=p[1]-p[3]/2;
+    if(player.x>p[0]-p[2]/2-8&&player.x<p[0]+p[2]/2+8&&Math.abs(player.y-top)<10)
+      return{i,x:p[0],y:top,w:p[2],l:p[0]-p[2]/2,r:p[0]+p[2]/2};
+  }
+  return null;
+}
+// Superficie más alta bajo el boss: le permite quedarse de pie en las escaleras.
+function bossSurfaceUnder(b){
+  let top=GROUND_TOP;
+  const half=(b.w||52)*0.3;
+  for(let i=0;i<PLATS.length;i++){
+    if(isPlatBroken(i))continue;
+    const p=PLATS[i],t=p[1]-p[3]/2;
+    if(b.x+half>p[0]-p[2]/2&&b.x-half<p[0]+p[2]/2&&t>=b.y-10&&t<top)top=t;
+  }
+  return top;
+}
+function settleBoss(b){
+  if(b.st==='AIR'||b.st==='LEAP'||b.st==='TRANS')return;
+  b.surfY=bossSurfaceUnder(b);
+}
 function rectHit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 function clampBoss(b){
   const a=ARENAS[b.idx];if(!a)return;
   b.x=Math.max(a[0]+40,Math.min(a[1]-40,b.x));
-  // En AIR la y la controla updateAirBoss; no la pegues al suelo cada frame.
-  if(b.st!=='AIR'){b.y=GROUND_TOP;b.vx=0;b.vy=0;}
+  // En AIR/LEAP/TRANS la y la controla su animación; en suelo pisa plataformas.
+  if(b.st!=='AIR'&&b.st!=='LEAP'&&b.st!=='TRANS'){settleBoss(b);b.vx=0;b.vy=0;}
 }
 function moveBody(e,dt){
   const Ss=solids();

@@ -7,6 +7,8 @@ const BOSS_SKILL_INFO={
   boss_clone:'Eco: +25% daño'
 };
 function timingMult(){return Rhythm.evaluate();}
+// Presión exponencial por índice de boss (~4.5x combinada del 1 al 6).
+function bossScale(b){const i=b.idx||0;return{dmg:Math.pow(1.06,i),spd:Math.pow(1.08,i),cnt:Math.pow(1.14,i)};}
 function burst(x,y,color,n,spd){
   for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-0.5)*spd,vy:-Math.random()*spd*0.8,t:0.4+Math.random()*0.3,c:color});
 }
@@ -15,6 +17,7 @@ function shockRing(x,y,color,maxR){
 }
 function dealBossDmg(b,dmg){
   if(b.dead)return;
+  if(b.st==='TRANS'){burst(b.x,b.y-40,b.color||'#fff',2,80);return;}
   // Fase aérea: fuera de alcance. Los ataques normales no lo bajan; toca esquivar.
   if(b.st==='AIR'){
     if(!b.airHit){
@@ -39,29 +42,41 @@ function dealBossDmg(b,dmg){
     b.st='STUNNED';b.t=1.4;b.stunDr=now;clearDelayedFor(b.pid);
     floaters.push({x:b.x,y:b.y-b.h-30,txt:'STUN',t:0.8,c:'#33e6ff'});shockRing(b.x,b.y-40,'#33e6ff',130);
   }
-  if(!b.phase2&&b.hp<b.maxhp/2){
+  if(!b.phase2&&b.hp<b.maxhp/2&&b.hp>0){
     b.phase2=true;
-    // BUG antes: rebase() reseteaba kickCount y lastKickSeen quedaba alto -> el boss
-    // dejaba de disparar y de soltar fichas durante ~14s en plena fase 2.
+    // BPM sube YA (los tests lo verifican) y la transición es invulnerable.
     Rhythm.bpm=b.bpm[1];Rhythm.rebase(true);lastKickSeen=Rhythm.kickCount;
-    notes=[];noteCombo=0;clearDelayedFor(b.pid);b.pid=++patId;
-    b.st='IDLE';b.t=0.55;b.atkCount=0;b.lastPat='';b.flash=0.3;
-    showBanner('FASE 2 · '+b.type,'¡ENFURECIDO! '+b.bpm[1]+' BPM','#ff66ff',1.8);
-    screenFlash('#ff66ff',0.22);camShakeT=0.3;camShake=7;
-    shockRing(b.x,b.y-40,b.color,220);shockRing(b.x,b.y-40,'#ffffff',140);
-    burst(b.x,b.y-40,b.color,22,420);burst(b.x,b.y-40,'#fff',10,300);
-    beep(110,0.4,0.3,'sawtooth');beep(220,0.3,0.25,'square');
-    if(typeof Music!=='undefined'&&Music.syncBoss)Music.syncBoss(b.bpm[1],true);
-    // En fase 2 suelta ráfaga inicial según tipo para avisar el cambio
-    later(()=>{if(!b.dead&&b.locked)fireKickBarrage(b);},0.4);
+    startPhaseTransition(b);
   }
   if(b.hp<=0)killBoss(b);
+}
+function startPhaseTransition(b){
+  b.st='TRANS';b.transMax=1.6;b.t=b.transMax;
+  b.atkCount=0;b.lastPat='';b.pid=++patId;
+  notes=[];noteCombo=0;eProj=[];
+  showBanner('FASE 2 · '+b.type,b.idx===5?'¡ENFURECIDO! PISO CORROSIVO':'¡ENFURECIDO! '+b.bpm[1]+' BPM','#ff66ff',2.2);
+  screenFlash('#ff66ff',0.35);camShakeT=0.7;camShake=10;
+  hitstop(0.12,0.3);
+  shockRing(b.x,b.y-40,b.color,120);burst(b.x,b.y-40,b.color,16,320);
+  beep(110,0.5,0.3,'sawtooth');
+  if(typeof Music!=='undefined'&&Music.syncBoss)Music.syncBoss(b.bpm[1],true);
+}
+function updatePhaseTransition(b,dt){
+  b.t-=dt;
+  if(Math.floor(performance.now()/45)%2===0)burst(b.x+(Math.random()-0.5)*90,b.y-20-Math.random()*70,b.color,1,80);
+  if(b.t>0)return;
+  b.st='IDLE';b.t=0.45;b.flash=0.2;
+  shockRing(b.x,b.y-40,b.color,240);shockRing(b.x,b.y-40,'#fff',160);
+  burst(b.x,b.y-40,b.color,24,420);burst(b.x,b.y-40,'#fff',10,300);
+  camShake=Math.max(camShake,7);screenFlash('#fff',0.16);
+  beep(160,0.25,0.2,'square');
 }
 function killBoss(b){
   b.dead=true;b.locked=false;S.bosses[b.type]=true;
   clearDelayedFor(b.pid);
   // Victoria segura: antes quedaban balas no-hell (rebotes/agujeros) golpeando tras morir.
   eProj=[];notes=[];noteCombo=0;
+  platState={};floorDmgT=0;
   const def=BOSS_DEFS.find(d=>d.type===b.type);
   let gain=echoGain(180);
   if(def.pair&&S.bosses[def.pair])gain+=echoGain(80);
@@ -275,18 +290,18 @@ function hitNote(key,auto){
 // Barrage rítmico por boss: cada tipo favorece sus modos (personalidad).
 // Resonator=RING/FAN simple · Bass=RAIN pesada · Choir=SPIRAL/FAN · Void=FAN/RAIN · Prime=SPIRAL rápido · Primordial=todo denso.
 function fireKickBarrage(b){
-  if(b.dead||b.st==='STUNNED'||b.st==='AIR')return; // en el aire no hay fichas: solo esquiva
+  if(b.dead||b.st==='STUNNED'||b.st==='AIR'||b.st==='TRANS')return; // en el aire no hay fichas: solo esquiva
   const dx=player.x-b.x,dy=(player.y-16)-(b.y-50);
   const baseAng=Math.atan2(dy,dx);
   const hard=S.difficulty==='hard',easy=S.difficulty==='easy';
-  // Escalado real por índice: boss 0 tutorial, boss 5 infierno. Antes el 0 se sentía más denso que el resto.
-  const esc=b.idx; // 0..5
-  const ph=(b.phase2?1.22:1)*(esc<2?0.85:0.9+esc*0.06);
-  const early=b.idx<2;
-  const ringN=easy?6+Math.floor(esc/2):(hard?11+esc:(b.phase2?11+esc:(early?8:9+esc)));
-  const fanN=easy?3:(hard?5+Math.floor(esc/2):(early?3:4+Math.floor(esc/2)));
-  const rainN=easy?5+esc:(hard?9+esc:7+esc);
-  const spd=(hard?320+esc*8:(b.phase2?300+esc*10:(early?250:275+esc*10)))*(b.phase2?1.12:1);
+  // Escalado exponencial por índice: boss 0 tutorial, boss 5 infierno.
+  const esc=b.idx||0,g=bossScale(b);
+  const early=esc<2;
+  const ph=(b.phase2?1.22:1)*g.dmg*(early?0.85:1);
+  const ringN=Math.max(4,Math.round((easy?6:hard?11:early?8:9)*g.cnt));
+  const fanN=Math.max(2,Math.round((easy?3:hard?5:early?3:4)*g.cnt));
+  const rainN=Math.max(4,Math.round((easy?5:hard?9:7)*g.cnt));
+  const spd=(easy?260:hard?360:early?250:320)*g.spd*(b.phase2?1.12:1);
   const col=b.color||'#ff2255';
   const pref={
     Resonator:[0,1,0,1],
@@ -331,7 +346,7 @@ function fireKickBarrage(b){
       eProj.push({x:sx,y:sy,vx:Math.cos(a3)*spd*0.85,vy:Math.sin(a3)*spd*0.85,w:12,h:12,life:2.6,dmg:Math.round(10*ph),hell:true,col});
     }
   }
-  if(eProj.length>160)eProj.splice(0,eProj.length-160);
+  if(eProj.length>230)eProj.splice(0,eProj.length-230);
   // Notas piano-tiles: tutorial de una en una; dobles (2 carriles) en bosses tardíos y fase 2
   const kc=Rhythm.kickCount;
   if(b.phase2&&kc%4===0){
@@ -341,6 +356,45 @@ function fireKickBarrage(b){
     const k1=Math.floor(Math.random()*4),k2=(k1+1+Math.floor(Math.random()*3))%4;
     spawnNote(b,k1);spawnNote(b,k2,0.14);
   }else if(kc%2===0)spawnNote(b);
+}
+// ---------- SALTO ENTRE PLATAFORMAS ----------
+function planBossLeap(b,plat){
+  const a=ARENAS[b.idx]||[0,WORLD_W];
+  b.leapPlat=plat?plat.i:null;
+  b.leapToX=plat?plat.x:Math.max(a[0]+90,Math.min(a[1]-90,player.x));
+  b.leapToY=plat?plat.y:GROUND_TOP;
+  b.pat=(plat&&b.phase2&&b.idx>=3&&Math.random()<0.45)?'SLAM':'LEAP';
+  b.lastPat=b.pat;
+}
+function startBossLeap(b){
+  b.st='LEAP';b.leapT=0.55;b.t=b.leapT;
+  b.leapFromX=b.x;b.leapFromY=b.y;
+  b.flash=0.25;b.pid=++patId;
+  burst(b.x,b.y-20,b.color,8,180);beep(300,0.12,0.18,'sawtooth');
+  camShake=Math.max(camShake,2);
+}
+function updateBossLeap(b,dt){
+  b.t-=dt;
+  const k=Math.min(1,1-Math.max(0,b.t)/b.leapT),e=k*k*(3-2*k);
+  b.x=b.leapFromX+(b.leapToX-b.leapFromX)*e;
+  b.y=b.leapFromY+(b.leapToY-b.leapFromY)*e-Math.sin(Math.PI*k)*140;
+  if(Math.floor(performance.now()/55)%2===0)
+    fx.push({kind:'bossghost',spr:b.spr,sw:b.sw||120,sh:b.sh||b.h,hue:b.hue,x:b.x,y:b.y,face:b.leapToX<b.leapFromX,t:0.2,max:0.2,color:b.color});
+  if(b.t>0)return;
+  b.x=b.leapToX;b.y=b.leapToY;
+  const landed=b.leapPlat;
+  b.st='IDLE';b.t=0.35;
+  if(landed!==null&&landed!==undefined&&isPlatBroken(landed))b.y=bossSurfaceUnder(Object.assign({},b,{y:b.leapToY}));
+  b.surfY=b.y;b.flash=0.2;
+  shockRing(b.x,b.y-20,b.color,140);burst(b.x,b.y-20,b.color,14,260);camShake=Math.max(camShake,4);
+  beep(120,0.18,0.22,'square');
+  if(b.pat==='SLAM'){
+    const R=b.phase2?215:175;
+    if(Math.abs(player.x-b.x)<R&&Math.abs(player.y-b.y)<44)hurtPlayer(Math.round(16*bossScale(b).dmg),b.x);
+    shockRing(b.x,b.y-14,b.color,R);burst(b.x,b.y-14,b.color,18,340);
+    if(landed!==null&&landed!==undefined&&b.idx>=3&&b.phase2)breakPlatform(landed,0.55,2.8);
+  }
+  b.leapPlat=null;b.pat='';
 }
 const BOSS_PREFS={
   Resonator:[['DOUBLE',.3],['WAVE',.2],['PULSE',.15],['TELEPORT',.08],['SINGLE',.27]],
@@ -365,6 +419,10 @@ function choosePattern(b,dx,adx){
   // Firma única cada N ataques (en fase 2 cae un ataque antes).
   const every=Math.max(2,(b.sigEvery||4)-(b.phase2?1:0));
   if(b.atkCount%every===0){b.pat='SIG';return;}
+  // Plataformas: si el jugador está arriba, el boss salta a por él (y aplasta en fase 2).
+  const plat=platformUnderPlayer(),bs=b.surfY||GROUND_TOP;
+  if(plat&&plat.y<bs-2&&Math.random()<(b.phase2?0.6:0.35)){planBossLeap(b,plat);return;}
+  if(bs<GROUND_TOP-2&&Math.random()<0.5){planBossLeap(b,null);return;}
   // Personalidad por boss + variedad: nunca repite el mismo patrón dos veces seguidas.
   let opts=BOSS_PREFS[b.type]||BOSS_PREFS.Resonator;
   if(adx<110){
@@ -384,8 +442,10 @@ function startAirBoss(b){
   b.st='AIR';b.airT=0;b.airAtk=0;b.airHit=false;
   b.airMax=b.phase2?2.3:2.5;
   b.airY=GROUND_TOP-300;
+  b.airStartY=b.y;
   const side=Math.random()<0.5?-1:1;
   b.airX=Math.max(a[0]+90,Math.min(a[1]-90,player.x+side*180));
+  b.airLandY=bossSurfaceUnder({x:b.airX,y:b.airY,w:b.w});
   b.flash=0.18;b.evadeT=0;
   // Sin fichas mientras está fuera de alcance: la ventana es de esquiva, no de DPS.
   notes=[];noteCombo=0;
@@ -399,13 +459,14 @@ function updateAirBoss(b,dt){
   b.x+=(b.airX-b.x)*Math.min(1,dt*7);
   b.x=Math.max(a[0]+50,Math.min(a[1]-50,b.x));
   const rise=0.5,fall=0.55,fallStart=Math.max(rise+0.2,(b.airMax||2.5)-fall);
-  if(b.airT<rise){const k=b.airT/rise;b.y=GROUND_TOP+(b.airY-GROUND_TOP)*(1-Math.pow(1-k,3));}
+  const y0=(b.airStartY===undefined?GROUND_TOP:b.airStartY),y1=(b.airLandY===undefined?GROUND_TOP:b.airLandY);
+  if(b.airT<rise){const k=b.airT/rise;b.y=y0+(b.airY-y0)*(1-Math.pow(1-k,3));}
   else if(b.airT<fallStart)b.y=b.airY;
-  else{const k=Math.min(1,(b.airT-fallStart)/fall);b.y=b.airY+(GROUND_TOP-b.airY)*k*k;}
+  else{const k=Math.min(1,(b.airT-fallStart)/fall);b.y=b.airY+(y1-b.airY)*k*k;}
   if(b.airAtk===0&&b.airT>=0.65){b.airAtk=1;fireAirAttack(b,0);}
   if(b.airAtk===1&&b.airT>=1.35){b.airAtk=2;fireAirAttack(b,1);}
   if(b.airT>=(b.airMax||2.5)){
-    b.st='IDLE';b.t=b.phase2?0.45:0.7;b.y=GROUND_TOP;b.airT=0;b.airAtk=0;b.airHit=false;
+    b.st='IDLE';b.t=b.phase2?0.45:0.7;b.y=y1;b.surfY=y1;b.airT=0;b.airAtk=0;b.airHit=false;
     b.flash=0.18;b.contactCd=Math.max(b.contactCd||0,0.5);
     shockRing(b.x,b.y-20,b.color,150);burst(b.x,b.y-20,b.color,12,260);camShake=Math.max(camShake,3);
     beep(160,0.14,0.16,'square');
@@ -413,16 +474,16 @@ function updateAirBoss(b,dt){
 }
 // Cada jefe tiene su firma aérea: nieve de escombros, orbes, fan o anillo.
 function fireAirAttack(b,k){
-  const sx=b.x,sy=b.y-40,col=b.color||'#f66',ph=(b.phase2?1.22:1)*(1+b.idx*0.035);
+  const sx=b.x,sy=b.y-40,col=b.color||'#f66',g=bossScale(b),ph=(b.phase2?1.22:1)*g.dmg;
   const easy=S.difficulty==='easy',hard=S.difficulty==='hard';
-  const spd=(easy?260:hard?400:340)*(b.phase2?1.08:1);
+  const spd=(easy?260:hard?400:340)*g.spd*(b.phase2?1.08:1);
   const dmg=n=>Math.round(n*ph*(easy?0.8:hard?1.12:1));
   const aim=Math.atan2((player.y-16)-sy,player.x-sx);
   const shot=(a,s,w,d,life)=>{eProj.push({x:sx,y:sy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,w:w||12,h:w||12,life:life||2.4,dmg:d,hell:true,col});};
   if(k===0){
     if(b.type==='BassTitan'||b.type==='EchoPrimordial'){
       // LLUVIA: escombros alrededor del jugador; moverse deja un hueco.
-      const n=b.phase2?7:5;
+      const n=Math.max(4,Math.round((b.phase2?7:5)*g.cnt));
       for(let i=0;i<n;i++)eProj.push({x:player.x+(i-(n-1)/2)*72,y:sy-150,vx:0,vy:390,w:15,h:15,life:2.4,dmg:dmg(10),hell:true,col});
       shockRing(sx,sy,col,170);beep(90,0.3,0.22,'sawtooth');
     }else if(b.type==='ChoirWarden'||b.type==='VoidHarvester'){
@@ -446,12 +507,12 @@ function fireAirAttack(b,k){
       beep(70,0.5,0.22,'sine');
     }else if(b.type==='EchoPrime'){
       // CRUZ: abanico rápido y estrecho.
-      const n=b.phase2?7:5;
+      const n=Math.max(4,Math.round((b.phase2?7:5)*g.cnt));
       for(let i=0;i<n;i++)shot(aim+(i-(n-1)/2)*0.13,spd*1.25,12,dmg(10));
       beep(1200,0.08,0.12);
     }else{
       // ANILLO radial desde el aire.
-      const n=(b.phase2?14:10)+(b.idx>=3?2:0),off=Math.random()*6.283;
+      const n=Math.max(8,Math.round(((b.phase2?14:10)+(b.idx>=3?2:0))*Math.sqrt(g.cnt))),off=Math.random()*6.283;
       for(let i=0;i<n;i++)shot(off+i/n*6.283,spd*0.9,12,dmg(8));
       beep(160,0.2,0.18,'sawtooth');
     }
@@ -464,7 +525,7 @@ function cloneSlime(b,ox,dir){
 }
 // Firma por boss: un ataque exclusivo que rompe el bucle y enseña su identidad.
 function fireSignature(b,dx){
-  const sx=b.x,sy=b.y-50,ph=b.phase2?1.25:1,dir=Math.sign(dx)||1,col=b.color||'#f66';
+  const sx=b.x,sy=b.y-50,g=bossScale(b),ph=(b.phase2?1.25:1)*g.dmg,dir=Math.sign(dx)||1,col=b.color||'#f66';
   const id=++patId;b.pid=id;
   const alive=()=>!b.dead&&b.st!=='STUNNED'&&b.pid===id;
   switch(b.type){
@@ -473,7 +534,7 @@ function fireSignature(b,dx){
         if(!alive())return;
         const R2=170+i*90;
         shockRing(sx,b.y-40,col,R2);burst(sx,b.y-40,col,10,260);
-        if(Math.abs(player.x-sx)<R2&&player.y>GROUND_TOP-90)hurtPlayer(Math.round(11*ph),sx);
+        if(Math.abs(player.x-sx)<R2&&Math.abs(player.y-b.y)<90)hurtPlayer(Math.round(11*ph),sx);
         beep(110+i*35,0.28,0.22,'sawtooth');
       },i*0.38,id);
       break;
@@ -517,7 +578,7 @@ function fireSignature(b,dx){
         const a=ARENAS[b.idx]||[200,WORLD_W-200];
         const side=player.x>(a[0]+a[1])/2?-1:1;
         burst(sx,sy,'#ffe633',18,360);shockRing(sx,sy,'#ffe633',150);
-        b.x=Math.max(a[0]+70,Math.min(a[1]-70,player.x+side*210));clampBoss(b);
+        b.x=Math.max(a[0]+70,Math.min(a[1]-70,player.x+side*210));clampBoss(b);b.y=b.surfY;
         burst(b.x,b.y-50,'#ffe633',18,360);
         const ang=Math.atan2((player.y-16)-(b.y-50),player.x-b.x);
         for(let i=-2;i<=2;i++){const aa=ang+i*0.13;
@@ -541,27 +602,28 @@ function fireSignature(b,dx){
 function firePattern(b,dx){
   if(b.pat==='AIR'){startAirBoss(b);return;}
   if(b.pat==='SIG'){fireSignature(b,dx);return;}
-  const dir=Math.sign(dx)||1,ph=b.phase2?1.25:1,col=b.color||'#ff2255';
+  if(b.pat==='LEAP'||b.pat==='SLAM'){startBossLeap(b);return;}
+  const dir=Math.sign(dx)||1,g=bossScale(b),ph=(b.phase2?1.25:1)*g.dmg,col=b.color||'#ff2255';
   const id=++patId;b.pid=id;
   const alive=()=>!b.dead&&b.st!=='STUNNED'&&b.pid===id;
   const aim=()=>{const lead=b.phase2?0.18:0.1;return Math.atan2((player.y-16+(player.vy||0)*lead)-(b.y-50),(player.x+(player.vx||0)*lead)-b.x);};
   if(b.pat==='RUSH'){
     // Gap-closer: la telegrafía es la línea de EMBESTIDA; al frenar escupe un abanico.
     const dist=Math.max(1,Math.abs(dx));
-    const spd=Math.min(1300,Math.max(420,dist/0.36));
+    const spd=Math.min(1300,Math.max(420,dist/0.36))*g.spd;
     b.lungeVx=dir*spd;b.st='LUNGE';b.t=Math.min(0.65,dist/spd);b.flash=0.25;
     burst(b.x,b.y-40,col,10,220);beep(240,0.2,0.25,'sawtooth');camShake=Math.max(camShake,3);
   }else if(b.pat==='SINGLE'||b.pat==='DOUBLE'){
     const offs=b.pat==='DOUBLE'?[-0.08,0.08]:[0];
     offs.forEach((off,k)=>later(()=>{if(!alive())return;const a=aim()+off;
-      eProj.push({x:b.x,y:b.y-50,vx:Math.cos(a)*720,vy:Math.sin(a)*720,w:16,h:16,life:1.7,dmg:Math.round(16*ph),hell:true,col});
+      eProj.push({x:b.x,y:b.y-50,vx:Math.cos(a)*720*g.spd,vy:Math.sin(a)*720*g.spd,w:16,h:16,life:1.7,dmg:Math.round(16*ph),hell:true,col});
       beep(180,0.08,0.15,'sawtooth');burst(b.x,b.y-50,col,3,140);},0.08+k*0.05,id));
-  }else if(b.pat==='WAVE'){later(()=>{if(!alive())return;eProj.push({x:b.x+dir*10,y:GROUND_TOP-22,vx:dir*700,vy:0,w:34,h:24,life:1.2,dmg:Math.round(22*ph),hell:true,col,ground:true});shockRing(b.x,b.y-40,col,110);beep(200,0.12,0.2,'sawtooth');},0.1,id);}
-  else if(b.pat==='PULSE'){later(()=>{if(!alive())return;const R2=b.type==='BassTitan'?200:160;if(Math.abs(player.x-b.x)<R2&&player.y>GROUND_TOP-90)hurtPlayer(Math.round(14*ph),b.x);shockRing(b.x,b.y-40,col,R2);burst(b.x,b.y-40,col,12,300);beep(120,0.3,0.25,'sawtooth');},0.1,id);}
-  else if(b.pat==='RICOCHET'){later(()=>{if(!alive())return;eProj.push({x:b.x,y:player.y-16,vx:dir*550,vy:0,leg:400,bounce:b.phase2?3:2,life:3,dmg:Math.round(18*ph),w:14,h:14,hell:true,col});},0.1,id);}
-  else if(b.pat==='FAN'){later(()=>{if(!alive())return;const n=b.phase2?7:5,a0=aim();
+  }else if(b.pat==='WAVE'){later(()=>{if(!alive())return;eProj.push({x:b.x+dir*10,y:GROUND_TOP-22,vx:dir*700*g.spd,vy:0,w:34,h:24,life:1.2,dmg:Math.round(22*ph),hell:true,col,ground:true});shockRing(b.x,b.y-40,col,110);beep(200,0.12,0.2,'sawtooth');},0.1,id);}
+  else if(b.pat==='PULSE'){later(()=>{if(!alive())return;const R2=b.type==='BassTitan'?200:160;if(Math.abs(player.x-b.x)<R2&&Math.abs(player.y-b.y)<90)hurtPlayer(Math.round(14*ph),b.x);shockRing(b.x,b.y-40,col,R2);burst(b.x,b.y-40,col,12,300);beep(120,0.3,0.25,'sawtooth');},0.1,id);}
+  else if(b.pat==='RICOCHET'){later(()=>{if(!alive())return;eProj.push({x:b.x,y:player.y-16,vx:dir*550*g.spd,vy:0,leg:400,bounce:b.phase2?3:2,life:3,dmg:Math.round(18*ph),w:14,h:14,hell:true,col});},0.1,id);}
+  else if(b.pat==='FAN'){later(()=>{if(!alive())return;const n=Math.max(3,Math.round((b.phase2?7:5)*g.cnt)),a0=aim();
     for(let i=0;i<n;i++){const a=a0+(i-(n-1)/2)*0.14;
-      eProj.push({x:b.x,y:b.y-50,vx:Math.cos(a)*390,vy:Math.sin(a)*390,w:12,h:12,life:2.1,dmg:Math.round(9*ph),hell:true,col});}
+      eProj.push({x:b.x,y:b.y-50,vx:Math.cos(a)*390*g.spd,vy:Math.sin(a)*390*g.spd,w:12,h:12,life:2.1,dmg:Math.round(9*ph),hell:true,col});}
     beep(260,0.1,0.16,'sawtooth');},0.1,id);}
   else if(b.pat==='BLACKHOLE'){
     // Ya no nace lejos del jugador: el vórtice aparece bajo sus pies con aviso.
@@ -575,11 +637,11 @@ function firePattern(b,dx){
     let nx=player.x+(230+Math.random()*90)*side;
     nx=Math.max(a[0]+70,Math.min(a[1]-70,nx));
     if(Math.abs(nx-player.x)<150)nx=player.x-220*side;
-    b.x=Math.max(a[0]+70,Math.min(a[1]-70,nx));clampBoss(b);
+    b.x=Math.max(a[0]+70,Math.min(a[1]-70,nx));clampBoss(b);b.y=b.surfY;
     burst(ox,oy,col,12,280);shockRing(ox,oy,col,110);burst(b.x,b.y-50,col,12,280);
-    const ang=Math.atan2((player.y-16)-(b.y-50),player.x-b.x),n=b.phase2?5:3;
+    const ang=Math.atan2((player.y-16)-(b.y-50),player.x-b.x),n=Math.max(2,Math.round((b.phase2?5:3)*g.cnt));
     for(let i=0;i<n;i++){const aa=ang+(i-(n-1)/2)*0.14;
-      eProj.push({x:b.x,y:b.y-50,vx:Math.cos(aa)*520,vy:Math.sin(aa)*520,w:13,h:13,life:1.8,dmg:Math.round(10*ph),hell:true,col});}
+      eProj.push({x:b.x,y:b.y-50,vx:Math.cos(aa)*520*g.spd,vy:Math.sin(aa)*520*g.spd,w:13,h:13,life:1.8,dmg:Math.round(10*ph),hell:true,col});}
     beep(600,0.08,0.15);},0.33,id);}
   else if(b.pat==='CLONE'){later(()=>{if(!alive())return;cloneSlime(b,40,-dir);if(b.phase2)cloneSlime(b,-40,dir);},0.4,id);}
 }

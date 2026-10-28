@@ -12,6 +12,7 @@ function update(rdt){
   updateDelayed(rdt*timeScale);
   if(state==='ending')return;
   const dt=rdt*timeScale;
+  updatePlatforms(dt);
   if(banner){banner.t-=rdt;if(banner.t<=0)banner=null;}
   flashT=Math.max(0,flashT-rdt*2.2);
   for(const f of fx)f.t-=dt;
@@ -96,17 +97,25 @@ function update(rdt){
   slimes=slimes.filter(s=>!s.dead);
   bosses.forEach(b=>{if(b.dead)return;
     clampBoss(b);
+    // Caída suave al perder la plataforma (nunca un snap vertical).
+    if(b.st!=='AIR'&&b.st!=='LEAP'&&b.st!=='TRANS'){
+      const dy=(b.surfY===undefined?GROUND_TOP:b.surfY)-b.y;
+      if(dy!==0)b.y+=Math.sign(dy)*Math.min(Math.abs(dy),900*dt);
+    }
     b.flash-=dt;b.hitT=Math.max(0,(b.hitT||0)-dt);b.contactCd-=dt;
     const target=Math.max(0,b.hp);
     b.hpAnim=(b.hpAnim===undefined?target:b.hpAnim)+(target-b.hpAnim)*Math.min(1,dt*6);
+    if(b.st==='TRANS'){updatePhaseTransition(b,dt);return;}
     if(!b.locked)return; // dormido: ni patrones, ni barrage, ni contacto
+    if(b.st==='LEAP'){updateBossLeap(b,dt);return;}
+    if(b.st==='AIR'){updateAirBoss(b,dt);return;}
     b.t-=dt;
     b.evadeCd=(b.evadeCd||0)-dt;
     b.dashCd=(b.dashCd||0)-dt;
     if(b.st==='STUNNED'){if(b.t<=0){b.st='IDLE';b.t=0.5;}return;}
-    if(b.st==='AIR'){updateAirBoss(b,dt);return;}
     const dx=player.x-b.x,adx=Math.abs(dx);
     const diffM=S.difficulty==='easy'?0.7:S.difficulty==='hard'?1.25:1;
+    const g=bossScale(b);
     // Embestida: cierra la distancia y castiga el campamento a distancia.
     if(b.st==='LUNGE'){
       b.x+=b.lungeVx*dt;
@@ -119,16 +128,16 @@ function update(rdt){
         b.st='IDLE';b.t=0.4;b.lungeVx=0;b.dashCd=(b.phase2?1.1:2.1)/diffM;
         camShake=Math.max(camShake,4);shockRing(b.x,b.y-40,b.color,120);burst(b.x,b.y-40,b.color,14,280);
         // Al frenar escupe un abanico: no puedes quedarte pegado pegado sin moverte.
-        const ang=Math.atan2((player.y-16)-(b.y-50),player.x-b.x),n=b.phase2?5:3;
+        const ang=Math.atan2((player.y-16)-(b.y-50),player.x-b.x),n=Math.max(3,Math.round((b.phase2?5:3)*g.cnt));
         for(let i=0;i<n;i++){const a=ang+(i-(n-1)/2)*0.17;
-          eProj.push({x:b.x,y:b.y-50,vx:Math.cos(a)*390,vy:Math.sin(a)*390,w:12,h:12,life:1.7,dmg:Math.round(10*(b.phase2?1.25:1)),hell:true,col:b.color});}
+          eProj.push({x:b.x,y:b.y-50,vx:Math.cos(a)*390*g.spd,vy:Math.sin(a)*390*g.spd,w:12,h:12,life:1.7,dmg:Math.round(10*(b.phase2?1.25:1)*g.dmg),hell:true,col:b.color});}
         beep(300,0.14,0.2,'sawtooth');
       }
     }
     if(b.st==='IDLE'){
       const keep=b.keep||240;
       b.farT=adx>Math.max(300,keep+100)?(b.farT||0)+dt:0;
-      const spd=(b.speed||40)*(b.phase2?1.55:1.1)*diffM;
+      const spd=(b.speed||40)*(b.phase2?1.55:1.1)*diffM*g.spd;
       let m=0;
       if(adx>keep+50)m=Math.sign(dx);
       else if(adx<keep-90)m=-Math.sign(dx);
@@ -140,7 +149,7 @@ function update(rdt){
       if(m!==0){b.x+=m*spd*dt;clampBoss(b);}
       // Esquiva lateral: si le llega un disparo, deja de ser un blanco fijo.
       if(b.evadeT>0){
-        b.evadeT-=dt;b.x+=b.evadeDir*(b.phase2?500:380)*diffM*dt;clampBoss(b);
+        b.evadeT-=dt;b.x+=b.evadeDir*(b.phase2?500:380)*diffM*g.spd*dt;clampBoss(b);
         if(Math.floor(performance.now()/50)%2===0)fx.push({kind:'bossghost',spr:b.spr,sw:b.sw||120,sh:b.sh||b.h,hue:b.hue,x:b.x,y:b.y,face:b.evadeDir<0,t:0.18,max:0.18,color:b.color});
       }else if(b.evadeCd<=0){
         let ed=0;
@@ -155,14 +164,21 @@ function update(rdt){
       // Anti-camp: si te quedas lejos demasiado tiempo, embiste sí o sí.
       const campLimit=(b.phase2?0.55:1.0)/diffM;
       if(b.st==='IDLE'&&b.dashCd<=0&&(b.farT||0)>campLimit){
-        b.farT=0;b.st='TELE';b.t=(b.tele||0.35)*0.8;b.flash=0.35;b.pat='RUSH';b.pid=++patId;
+        b.farT=0;b.st='TELE';b.t=(b.tele||0.35)*0.8*Math.pow(0.97,b.idx);b.flash=0.35;b.pat='RUSH';b.pid=++patId;
         beep(90,0.25,0.2,'sawtooth');
       }
     }
-    if(b.st==='IDLE'&&b.t<=0&&b.evadeT<=0){b.st='TELE';b.t=b.tele||0.35;b.flash=0.35;choosePattern(b,dx,adx);}
-    else if(b.st==='TELE'&&b.t<=0){firePattern(b,dx);if(b.st!=='LUNGE'&&b.st!=='AIR'){b.st='IDLE';b.t=(b.idle||1.15)*(b.phase2?0.55:0.85);}}
-    if(adx<42&&Math.abs(b.y-player.y)<80&&b.contactCd<=0){b.contactCd=0.9;hurtPlayer(b.contact,b.x);}
+    if(b.st==='IDLE'&&b.t<=0&&b.evadeT<=0){b.st='TELE';b.t=(b.tele||0.35)*Math.pow(0.97,b.idx);b.flash=0.35;choosePattern(b,dx,adx);}
+    else if(b.st==='TELE'&&b.t<=0){firePattern(b,dx);if(b.st!=='LUNGE'&&b.st!=='AIR'&&b.st!=='LEAP'){b.st='IDLE';b.t=(b.idle||1.15)*(b.phase2?0.55:0.85)*Math.pow(0.96,b.idx);}}
+    if(adx<42&&Math.abs(b.y-player.y)<80&&b.contactCd<=0){b.contactCd=0.9;hurtPlayer(Math.round(b.contact*(b.phase2?1.15:1)*g.dmg),b.x);}
   });
+  // Piso corrosivo: solo el boss final en fase 2 obliga a pelear desde las plataformas.
+  const fb=bosses.find(b=>!b.dead&&b.idx===5&&b.locked&&b.phase2);
+  if(fb&&player.y>=GROUND_TOP-2){
+    floorDmgT-=dt;
+    if(floorDmgT<=0){floorDmgT=0.55;hurtPlayer(9,player.x);}
+    if(Math.random()<dt*10)parts.push({x:player.x+(Math.random()-0.5)*500,y:GROUND_TOP-4,vx:0,vy:-40-Math.random()*60,t:0.6,c:'#9f6',nograv:true});
+  }else floorDmgT=0;
   bosses=bosses.filter(b=>!b.dead);
   pProj.forEach(p=>{p.x+=p.vx*dt;if(p.vy)p.y+=p.vy*dt;p.life-=dt;
     const fresh=o=>!p.hits||!p.hits.includes(o);

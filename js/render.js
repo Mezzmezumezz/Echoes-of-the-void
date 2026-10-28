@@ -1,7 +1,7 @@
 // js/render.js — Kenney Pixel Platformer (CC0) + fallback procedural por rects
 'use strict';
 function R(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x-camX),Math.round(y-camY),w,h);}
-const PAT_LABEL={SINGLE:'TIRO',DOUBLE:'DOBLE',WAVE:'ONDA',PULSE:'PULSO',RICOCHET:'REBOTE',BLACKHOLE:'VACÍO',TELEPORT:'SALTO',CLONE:'ECO',FAN:'ABANICO',SIG:'FIRMA',RUSH:'EMBESTIDA',AIR:'AIRE'};
+const PAT_LABEL={SINGLE:'TIRO',DOUBLE:'DOBLE',WAVE:'ONDA',PULSE:'PULSO',RICOCHET:'REBOTE',BLACKHOLE:'VACÍO',TELEPORT:'SALTO',CLONE:'ECO',FAN:'ABANICO',SIG:'FIRMA',RUSH:'EMBESTIDA',AIR:'AIRE',LEAP:'SALTO',SLAM:'PLASTA'};
 function draw(){
   if(state==='ending'){drawEnding();return;}
   ctx.imageSmoothingEnabled=false;
@@ -30,11 +30,24 @@ function draw(){
     R(0,GROUND_TOP,WORLD_W,H,'#2b2b3d');R(0,GROUND_TOP,WORLD_W,4,'#5c5c8a');R(0,GROUND_TOP+4,WORLD_W,2,'#3d7a44');
     for(let x=0;x<WORLD_W;x+=64){R(x,GROUND_TOP+8,32,3,'#34344a');}
   }
-  // plataformas con highlight
-  PLATS.forEach(p=>{const px=p[0]-p[2]/2,py=p[1]-p[3]/2;
-    R(px,py,p[2],p[3],p[3]>100?'#3d3d5c':'#5a5a8a');
-    R(px,py,p[2],2,'#8a8ab8');
-    R(px,py+p[3]-2,p[2],2,'#2a2a3e');
+  // Piso corrosivo del boss final (fase 2): aviso visual bajo los pies.
+  const floorBoss=bosses.find(b=>!b.dead&&b.idx===5&&b.phase2);
+  if(floorBoss){const fa=ARENAS[5]||[0,WORLD_W],pu=0.10+0.06*Math.sin(performance.now()/180);
+    ctx.fillStyle='rgba(120,255,80,'+pu+')';ctx.fillRect(fa[0]-camX,GROUND_TOP-camY,fa[1]-fa[0],14);
+    ctx.fillStyle='rgba(160,255,120,'+(pu*0.8)+')';
+    for(let i=0;i<12;i++){const xx=fa[0]+((i*97+performance.now()/40)%(fa[1]-fa[0]));ctx.fillRect(xx-camX,GROUND_TOP-4-camY,6,2);}}
+  // plataformas con highlight · aviso rojo antes de romperse · hueco tenue si ya cayeron
+  PLATS.forEach((p,i)=>{const px=p[0]-p[2]/2,py=p[1]-p[3]/2,st=platState[i]||{};
+    if(st.w<=0){
+      ctx.globalAlpha=0.25;R(px,py,p[2],2,'#f66');ctx.globalAlpha=1;
+      return;
+    }
+    const warn=!!st.w;
+    R(px,py,p[2],p[3],warn?'#7a3a3a':(p[3]>100?'#3d3d5c':'#5a5a8a'));
+    R(px,py,p[2],2,warn?'#f88':'#8a8ab8');
+    R(px,py+p[3]-2,p[2],2,warn?'#521':'#2a2a3e');
+    if(warn){const bl=0.35+0.35*Math.sin(performance.now()/70);
+      ctx.globalAlpha=bl;R(px,py,p[2],p[3],'#f33');ctx.globalAlpha=1;}
   });
   ARENAS.forEach(([a,b],i)=>{R(a,GROUND_TOP-32,b-a,32,'#22222f');R(a,GROUND_TOP-32,b-a,2,'#44445e');ctx.fillStyle='#888';ctx.font='12px monospace';ctx.fillText('BOSS '+(i+1),a+20-camX,GROUND_TOP-46-camY);});
   // checkpoints: poste + bandera
@@ -89,6 +102,30 @@ function draw(){
     const white=(b.flash||0)>0;
     const alpha=(!b.locked&&!b.dead)?0.55:1;
     if(b.phase2){const pu=0.18+0.1*Math.sin(t*6);ctx.fillStyle='rgba(255,217,51,'+pu+')';ctx.beginPath();ctx.arc(b.x-camX,b.y-bh*0.45-camY,bh*0.62,0,7);ctx.fill();}
+    // Transición de fase: anillos, núcleo blanco y levitación ligera.
+    if(b.st==='TRANS'){
+      const k=1-Math.max(0,b.t)/(b.transMax||1.6),rise=Math.sin(Math.PI*k)*10;
+      ctx.save();
+      for(let i=0;i<3;i++){const rr=(bh*0.45+i*16)*(0.55+k*1.1);
+        ctx.strokeStyle=i===1?'#fff':b.color;ctx.globalAlpha=Math.max(0,0.65-k*0.35);ctx.lineWidth=3;
+        ctx.beginPath();ctx.arc(bx-camX,b.y-bh*0.5-rise-camY,rr,0,7);ctx.stroke();}
+      ctx.globalAlpha=0.12+0.18*Math.abs(Math.sin(t*18));ctx.fillStyle='#fff';
+      ctx.beginPath();ctx.arc(bx-camX,b.y-bh*0.5-rise-camY,bh*0.55,0,7);ctx.fill();
+      ctx.restore();
+    }
+    // Objetivo del salto: se ve durante la telegrafía y el vuelo.
+    if((b.st==='TELE'&&(b.pat==='LEAP'||b.pat==='SLAM'))||b.st==='LEAP'){
+      const tx=(b.leapToX===undefined?player.x:b.leapToX),ty=(b.leapToY===undefined?GROUND_TOP:b.leapToY);
+      const slam=b.pat==='SLAM',rr=slam?86:54;
+      ctx.save();
+      ctx.strokeStyle=slam?'#ff4455':'#ffd933';ctx.globalAlpha=0.55+0.25*Math.sin(t*14);ctx.lineWidth=3;
+      ctx.setLineDash([7,6]);
+      ctx.beginPath();ctx.moveTo(bx-camX,b.y-40-camY);ctx.lineTo(tx-camX,ty-6-camY);ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();ctx.ellipse(tx-camX,ty-5-camY,rr,rr*0.22,0,0,7);ctx.stroke();
+      if(slam){ctx.globalAlpha=0.12;ctx.fillStyle='#ff4455';ctx.fill();}
+      ctx.restore();
+    }
     if(b.st==='LUNGE'){const d=Math.sign(b.lungeVx)||1;
       ctx.strokeStyle=b.color;ctx.globalAlpha=0.5;ctx.lineWidth=2;
       for(let i=0;i<4;i++){const ly=b.y-bh*0.2-i*18;ctx.beginPath();ctx.moveTo(bx-camX-d*(50+i*18),ly-camY);ctx.lineTo(bx-camX-d*(120+i*28),ly-camY);ctx.stroke();}
@@ -172,7 +209,7 @@ function draw(){
     ctx.save();
     ctx.fillStyle='#000b';ctx.fillRect(hx-4,hy-20,hw+8,44);
     ctx.font='bold 12px monospace';ctx.fillStyle=hb.color;
-    ctx.fillText('BOSS · '+hb.type+(hb.phase2?'  [FASE 2]':'')+(hb.st==='AIR'?'  [AIRE]':''),hx,hy-6);
+    ctx.fillText('BOSS · '+hb.type+(hb.phase2?'  [FASE 2]':'')+(hb.st==='AIR'?'  [AIRE]':hb.st==='TRANS'?'  [TRANSFORMACIÓN]':''),hx,hy-6);
     ctx.fillStyle='#2a0b12';ctx.fillRect(hx,hy,hw,hh);
     const trail=Math.max(0,Math.min(1,(hb.hpAnim===undefined?hb.hp:hb.hpAnim)/hb.maxhp));
     ctx.fillStyle='#ffffff66';ctx.fillRect(hx,hy,hw*trail,hh);
