@@ -52,7 +52,7 @@ function dealBossDmg(b,dmg){
     b.st='STUNNED';b.t=1.4;b.stunDr=now;clearDelayedFor(b.pid);
     floaters.push({x:b.x,y:b.y-b.h-30,txt:'STUN',t:0.8,c:'#33e6ff'});shockRing(b.x,b.y-40,'#33e6ff',130);
   }
-  if(!b.phase2&&b.hp<b.maxhp/2&&b.hp>0){
+  if(b.idx<5&&!b.phase2&&b.hp<b.maxhp/2&&b.hp>0){
     b.phase2=true;
     // BPM sube YA (los tests lo verifican) y la transición es invulnerable.
     Rhythm.bpm=b.bpm[1];Rhythm.rebase(true);lastKickSeen=Rhythm.kickCount;

@@ -43,19 +43,17 @@ const Rhythm={bpm:120,last:0,next:0,count:0,lastKick:0,kickCount:0,kickPat:[1,0,
     if(ms<=D.perfect)return{r:'PERFECT',m:1.5,ms};if(ms<=D.good)return{r:'GOOD',m:1.2,ms};return{r:'MISS',m:0.6,ms};}
 };
 
-// ---------- MUSICA POR BOSS Y POR FASE ----------
-// menu  = pantalla de carga + pausa -> assets/soundtrack_pantalla_de_carga.wav
-// main  = exploracion (play sin boss) -> assets/soundtrack_principal.wav
-// boss  = loop generico de 95 BPM; el playbackRate lo ajusta al BPM real del combate.
-//         fase 1 y fase 2 usan archivos distintos (fase 2 mas oscura/agresiva).
+// ---------- MUSICA POR BOSS ----------
+// menu/main = fondo DOOM -> assets/music/soundtrack_fondo.wav
+// bosses 1-5 = una fase, pista propia boss_1.wav ... boss_5.wav (rate 1.0).
 // final = BOSS_MUSIC.EchoPrimordial: Blade (150) en fase 1, Into The Void (156) en fase 2.
 //         La fase 2 arranca en el segundo 1.0 para que el drop caiga justo al acabar
 //         la transicion de 6s. El rate de estas pistas es 1.0 (ya estan a su BPM).
 const MUSIC_DEFS={
-  menu:{src:'assets/soundtrack_pantalla_de_carga.wav',vol:0.45,loop:true},
-  main:{src:'assets/soundtrack_principal.wav',vol:0.40,loop:true},
-  bossP1:{src:'assets/boss_resonator_95bpm.wav',vol:0.50,loop:true},
-  bossP2:{src:'assets/boss_resonator_fase2_95bpm.wav',vol:0.52,loop:true}
+  menu:{src:'assets/music/soundtrack_fondo.wav',vol:0.45,loop:true},
+  main:{src:'assets/music/soundtrack_fondo.wav',vol:0.40,loop:true},
+  bossP1:{src:'assets/music/boss_1.wav',vol:0.50,loop:true},
+  bossP2:{src:'assets/music/boss_1.wav',vol:0.52,loop:true}
 };
 const Music={
   el:{},defs:Object.assign({},MUSIC_DEFS),current:null,target:'__none__',unlocked:false,

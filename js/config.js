@@ -24,23 +24,26 @@ const SKILLS=[
 const _plat=(x,y,w=120,h=12)=>[x,y,w,h];
 const _stair=(x,y,n,dx,dy,w=120)=>Array.from({length:n},(_,i)=>_plat(x+i*dx,y+i*dy,w));
 const BOSS_DEFS=[
- {type:'Resonator',x:2650,hp:460,bpm:[95,130],color:'#ff4073',contact:14,reward:'boss_ricochet',pair:'BassTitan',spr:'eye',sw:120,sh:96,hue:0,fps:6,
+ {type:'Resonator',x:2650,hp:460,bpm:[103,103],color:'#ff4073',contact:14,reward:'boss_ricochet',pair:'BassTitan',spr:'eye',sw:120,sh:96,hue:0,fps:6,
   speed:40,keep:220,tele:0.42,idle:1.3,stunRes:2600,sigName:'CASCADA',sigEvery:4},
- {type:'BassTitan',x:4800,hp:680,bpm:[88,115],color:'#3366ff',contact:15,reward:'boss_ricochet',pair:'Resonator',spr:'mouth',sw:112,sh:112,hue:0,fps:8,
+ {type:'BassTitan',x:4800,hp:680,bpm:[108,108],color:'#3366ff',contact:15,reward:'boss_ricochet',pair:'Resonator',spr:'mouth',sw:112,sh:112,hue:0,fps:8,
   speed:26,keep:120,tele:0.48,idle:1.4,stunRes:4800,sigName:'TERREMOTO',sigEvery:3},
- {type:'ChoirWarden',x:7000,hp:820,bpm:[102,145],color:'#b333ff',contact:16,reward:'boss_blackhole',pair:'VoidHarvester',spr:'mouthOpen',sw:124,sh:124,hue:190,fps:9,
+ {type:'ChoirWarden',x:7000,hp:820,bpm:[114,114],color:'#b333ff',contact:16,reward:'boss_blackhole',pair:'VoidHarvester',spr:'mouthOpen',sw:124,sh:124,hue:190,fps:9,
   speed:60,keep:240,tele:0.32,idle:1.05,stunRes:3200,sigName:'SERMÓN',sigEvery:3},
- {type:'VoidHarvester',x:9200,hp:990,bpm:[90,128],color:'#33cc66',contact:16,reward:'boss_blackhole',pair:'ChoirWarden',spr:'ufo',sw:160,sh:66,hue:0,fps:10,
+ {type:'VoidHarvester',x:9200,hp:990,bpm:[150,150],color:'#33cc66',contact:16,reward:'boss_blackhole',pair:'ChoirWarden',spr:'ufo',sw:160,sh:66,hue:0,fps:10,
   speed:46,keep:220,tele:0.36,idle:1.15,stunRes:3600,sigName:'HORIZONTE',sigEvery:3},
- {type:'EchoPrime',x:11600,hp:1200,bpm:[110,160],color:'#ffe633',contact:18,reward:'boss_teleport',pair:null,spr:'eyeVoid',sw:136,sh:108,hue:0,fps:8,
+ {type:'EchoPrime',x:11600,hp:1200,bpm:[156,156],color:'#ffe633',contact:18,reward:'boss_teleport',pair:null,spr:'eyeVoid',sw:136,sh:108,hue:0,fps:8,
   speed:120,keep:180,tele:0.24,idle:0.78,stunRes:2800,sigName:'DESTELLO',sigEvery:3},
  {type:'EchoPrimordial',x:14800,hp:2600,bpm:[150,156],color:'#cc33cc',contact:26,reward:'boss_clone',pair:null,spr:'ufo',sw:190,sh:80,hue:280,fps:13,
   speed:95,keep:200,tele:0.26,idle:0.72,stunRes:5200,sigName:'APOCALIPSIS',sigEvery:3}];
-// Música por boss y por fase. Cualquier boss puede sobrescribir p1/p2 aquí.
-// Por defecto se usa el loop genérico de 95 BPM y el rate lo ajusta al BPM real del combate.
-// El jefe final usa las pistas originales: Blade (150 BPM) y Into The Void (156 BPM).
-// Ejemplo para otro boss: BassTitan:{p1:{src:'assets/music/titan_p1.mp3',bpm:88},p2:{...}}
+// Música por boss. Jefes 1-5: una fase y una pista propia (WAV numerados).
+// Jefe 6: conserva sus dos pistas originales Blade / Into The Void.
 const BOSS_MUSIC={
+  Resonator:{p1:{src:'assets/music/boss_1.wav',bpm:103,vol:0.55},p2:{src:'assets/music/boss_1.wav',bpm:103,vol:0.55}},
+  BassTitan:{p1:{src:'assets/music/boss_2.wav',bpm:108,vol:0.55},p2:{src:'assets/music/boss_2.wav',bpm:108,vol:0.55}},
+  ChoirWarden:{p1:{src:'assets/music/boss_3.wav',bpm:114,vol:0.55},p2:{src:'assets/music/boss_3.wav',bpm:114,vol:0.55}},
+  VoidHarvester:{p1:{src:'assets/music/boss_4.wav',bpm:150,vol:0.55},p2:{src:'assets/music/boss_4.wav',bpm:150,vol:0.55}},
+  EchoPrime:{p1:{src:'assets/music/boss_5.wav',bpm:156,vol:0.55},p2:{src:'assets/music/boss_5.wav',bpm:156,vol:0.55}},
   EchoPrimordial:{
     p1:{src:'assets/music/echo_primordial_fase1_blade.mp3',bpm:150,vol:0.55,start:0},
     // start:1.0 -> el build de Into The Void dura exactamente los 6s de transición;
@@ -49,8 +52,8 @@ const BOSS_MUSIC={
   }
 };
 const BOSS_MUSIC_DEFAULT={
-  p1:{src:'assets/boss_resonator_95bpm.wav',bpm:95,vol:0.50},
-  p2:{src:'assets/boss_resonator_fase2_95bpm.wav',bpm:95,vol:0.52}
+  p1:{src:'assets/music/boss_1.wav',bpm:103,vol:0.50},
+  p2:{src:'assets/music/boss_1.wav',bpm:103,vol:0.50}
 };
 const ARENAS=[[2200,3100],[4300,5300],[6500,7500],[8700,9700],[11100,12100],[14200,15400]];
 // Rutas: escaleras de 50-60px por paso (salto base ~84px), con atajos altos y recovecos.
