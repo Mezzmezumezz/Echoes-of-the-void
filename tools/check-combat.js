@@ -10,6 +10,7 @@ let nowMs=0;
 const gradient={addColorStop(){}};
 const ctxStub=new Proxy({
   createLinearGradient:()=>gradient,
+  createRadialGradient:()=>gradient,
   measureText:()=>({width:20})
 },{get(t,p){if(p in t)return t[p];return ()=>{};},set(t,p,v){t[p]=v;return true;}});
 
@@ -119,7 +120,9 @@ for(const def of BOSS_DEFS){
   const hpTrans=b.hp;
   dealBossDmg(b,50);
   assert(b.hp===hpTrans,'la transición de fase no es invulnerable: '+def.type);
-  updatePhaseTransition(b,2);
+  // El jefe final tiene una cinemática de 6s; el resto, 1.6s.
+  if(def.type==='EchoPrimordial')assert(Math.abs(b.transMax-6)<0.001,'la transición final no dura 6s');
+  for(let i=0;i<500&&b.st==='TRANS';i++){updatePhaseTransition(b,1/60);draw();}
   assert(b.st==='IDLE','la transición de fase no termina: '+def.type);
   b.st='IDLE';b.t=999;
   for(let i=0;i<30;i++){advance(1000/60);update(1/60);player.hp=999999;}
@@ -154,6 +157,18 @@ for(const def of BOSS_DEFS){
   for(let i=0;i<900;i++){advance(1000/60);update(1/60);player.hp=999999;if(b.st!=='AIR'){landed=true;break;}}
   assert(landed&&b.st==='IDLE'&&b.y===b.surfY,'el boss no vuelve a una superficie: '+def.type);
 
+  // Velo del Vacío: ventana invulnerable extra del jefe final en fase 2.
+  if(def.type==='EchoPrimordial'){
+    b.st='TELE';b.t=0;b.pat='SHROUD';b.pid=0;b.phase2=true;
+    advance(1000/60);update(1/60);
+    assert(b.st==='SHROUD','el Velo del Vacío no arranca desde TELE');
+    const hpSh=b.hp;
+    dealBossDmg(b,50);
+    assert(b.hp===hpSh,'el Velo del Vacío no bloquea daño');
+    for(let i=0;i<180&&b.st==='SHROUD';i++){advance(1000/60);update(1/60);draw();player.hp=999999;}
+    assert(b.st==='IDLE','el Velo del Vacío no termina');
+  }
+
   // TTK pasivo: mantener J desde lejos, sin esquivar ni tocar fichas.
   resetWorld();state='play';
   const b2=bosses.find(x=>x.type===def.type),a2=ARENAS[b2.idx];
@@ -161,16 +176,18 @@ for(const def of BOSS_DEFS){
   wi=2;tryLockBosses();
   keys['KeyJ']=true;attackHeld=true;
   let ttk=0;
-  for(let i=0;i<9000;i++){
+  const ttkFrames=def.type==='EchoPrimordial'?18000:9000; // el final es mucho más largo
+  for(let i=0;i<ttkFrames;i++){
     advance(1000/60);update(1/60);
     iframes=999;player.hp=999999;
     player.face=Math.sign(b2.x-player.x)||1;
     if(b2.dead){ttk=i/60;break;}
   }
   keys['KeyJ']=false;attackHeld=false;iframes=0;
-  assert(ttk>0,'el disparo rápido no mata a '+def.type+' en 150s (¿boss roto?)');
+  assert(ttk>0,'el disparo rápido no mata a '+def.type+' en el límite de tiempo (¿boss roto?)');
   killTimes[def.type]=ttk.toFixed(1)+'s';
   assert(ttk>3.5,'demasiado fácil: '+def.type+' muere en '+ttk.toFixed(1)+'s con disparo mantenido');
+  if(def.type==='EchoPrimordial')assert(ttk>20,'el jefe final no es más largo que el resto: '+ttk.toFixed(1)+'s');
 }
 
 // 2) Plataformas: el boss salta a una y puede romperla en fase 2.

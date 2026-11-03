@@ -109,6 +109,7 @@ function update(rdt){
     if(!b.locked)return; // dormido: ni patrones, ni barrage, ni contacto
     if(b.st==='LEAP'){updateBossLeap(b,dt);return;}
     if(b.st==='AIR'){updateAirBoss(b,dt);return;}
+    if(b.st==='SHROUD'){updateShroud(b,dt);return;}
     b.t-=dt;
     b.evadeCd=(b.evadeCd||0)-dt;
     b.dashCd=(b.dashCd||0)-dt;
@@ -169,14 +170,14 @@ function update(rdt){
       }
     }
     if(b.st==='IDLE'&&b.t<=0&&b.evadeT<=0){b.st='TELE';b.t=(b.tele||0.35)*Math.pow(0.97,b.idx);b.flash=0.35;choosePattern(b,dx,adx);}
-    else if(b.st==='TELE'&&b.t<=0){firePattern(b,dx);if(b.st!=='LUNGE'&&b.st!=='AIR'&&b.st!=='LEAP'){b.st='IDLE';b.t=(b.idle||1.15)*(b.phase2?0.55:0.85)*Math.pow(0.96,b.idx);}}
+    else if(b.st==='TELE'&&b.t<=0){firePattern(b,dx);if(b.st!=='LUNGE'&&b.st!=='AIR'&&b.st!=='LEAP'&&b.st!=='SHROUD'){b.st='IDLE';b.t=(b.idle||1.15)*(b.phase2?0.55:0.85)*Math.pow(0.96,b.idx);}}
     if(adx<42&&Math.abs(b.y-player.y)<80&&b.contactCd<=0){b.contactCd=0.9;hurtPlayer(Math.round(b.contact*(b.phase2?1.15:1)*g.dmg),b.x);}
   });
   // Piso corrosivo: solo el boss final en fase 2 obliga a pelear desde las plataformas.
   const fb=bosses.find(b=>!b.dead&&b.idx===5&&b.locked&&b.phase2);
   if(fb&&player.y>=GROUND_TOP-2){
     floorDmgT-=dt;
-    if(floorDmgT<=0){floorDmgT=0.55;hurtPlayer(9,player.x);}
+    if(floorDmgT<=0){floorDmgT=0.5;hurtPlayer(10,player.x);}
     if(Math.random()<dt*10)parts.push({x:player.x+(Math.random()-0.5)*500,y:GROUND_TOP-4,vx:0,vy:-40-Math.random()*60,t:0.6,c:'#9f6',nograv:true});
   }else floorDmgT=0;
   bosses=bosses.filter(b=>!b.dead);

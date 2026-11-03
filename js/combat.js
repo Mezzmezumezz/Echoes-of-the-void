@@ -18,6 +18,16 @@ function shockRing(x,y,color,maxR){
 function dealBossDmg(b,dmg){
   if(b.dead)return;
   if(b.st==='TRANS'){burst(b.x,b.y-40,b.color||'#fff',2,80);return;}
+  // Velo del Vacío: ventana de invulnerabilidad exclusiva del jefe final en fase 2.
+  if(b.st==='SHROUD'){
+    if(!b.shroudHit){
+      b.shroudHit=true;
+      floaters.push({x:b.x,y:b.y-b.h-12,txt:'VELO · INVULNERABLE',t:0.9,c:'#b34dff'});
+      shockRing(b.x,b.y-40,'#b34dff',100);beep(700,0.07,0.1);
+    }
+    burst(b.x,b.y-40,'#b34dff',2,110);
+    return;
+  }
   // Fase aérea: fuera de alcance. Los ataques normales no lo bajan; toca esquivar.
   if(b.st==='AIR'){
     if(!b.airHit){
@@ -51,24 +61,69 @@ function dealBossDmg(b,dmg){
   if(b.hp<=0)killBoss(b);
 }
 function startPhaseTransition(b){
-  b.st='TRANS';b.transMax=1.6;b.t=b.transMax;
+  const final=b.type==='EchoPrimordial';
+  const customP2=BOSS_MUSIC[b.type]&&BOSS_MUSIC[b.type].p2;
+  const transDur=(customP2&&customP2.transition)||1.6;
+  b.st='TRANS';b.transKind=final?'VOID':'NORMAL';
+  // El jefe final tiene una cinemática de 6s: el intro de Into The Void (1.0s -> 7.0s)
+  // termina justo cuando arranca el combate, así el drop cae con la fase 2.
+  b.transMax=final?transDur:1.6;b.t=b.transMax;b.transStage=-1;
   b.atkCount=0;b.lastPat='';b.pid=++patId;
   notes=[];noteCombo=0;eProj=[];
-  showBanner('FASE 2 · '+b.type,b.idx===5?'¡ENFURECIDO! PISO CORROSIVO':'¡ENFURECIDO! '+b.bpm[1]+' BPM','#ff66ff',2.2);
-  screenFlash('#ff66ff',0.35);camShakeT=0.7;camShake=10;
-  hitstop(0.12,0.3);
-  shockRing(b.x,b.y-40,b.color,120);burst(b.x,b.y-40,b.color,16,320);
-  beep(110,0.5,0.3,'sawtooth');
-  if(typeof Music!=='undefined'&&Music.syncBoss)Music.syncBoss(b.bpm[1],true);
+  if(final){
+    showBanner('COLAPSO PRIMORDIAL','EL VACÍO SE ABRE · FASE 2','#cc33cc',3.0);
+    screenFlash('#7a1bb8',0.30);camShakeT=0.9;camShake=14;
+    hitstop(0.14,0.25);
+    shockRing(b.x,b.y-40,b.color,180);shockRing(b.x,b.y-40,'#fff',110);
+    burst(b.x,b.y-40,b.color,30,420);burst(b.x,b.y-40,'#fff',16,300);
+    beep(55,0.8,0.32,'sawtooth');beep(110,0.6,0.2,'square');
+  }else{
+    showBanner('FASE 2 · '+b.type,'¡ENFURECIDO! '+b.bpm[1]+' BPM','#ff66ff',2.2);
+    screenFlash('#ff66ff',0.35);camShakeT=0.7;camShake=10;
+    hitstop(0.12,0.3);
+    shockRing(b.x,b.y-40,b.color,120);burst(b.x,b.y-40,b.color,16,320);
+    beep(110,0.5,0.3,'sawtooth');
+  }
+  // Fuerza el cambio a la pista de fase 2 en el mismo frame del lock de fase.
+  if(typeof Music!=='undefined'&&Music.syncBoss)Music.syncBoss();
+  if(typeof updateMusic==='function')updateMusic();
 }
 function updatePhaseTransition(b,dt){
   b.t-=dt;
+  const final=b.transKind==='VOID';
+  const k=Math.max(0,Math.min(1,1-b.t/(b.transMax||1.6)));
+  if(final){
+    // 0.0-0.25: el vacío aspira partículas hacia el núcleo.
+    // 0.25-0.70: anillos que se contraen y el jefe levita.
+    // 0.70-0.95: build blanco, temblor y silencio visual.
+    // 0.95-1.0: explosión y drop.
+    if(Math.random()<dt*70){
+      const a=Math.random()*Math.PI*2,r=140+Math.random()*160;
+      const px=b.x+Math.cos(a)*r,py=b.y-45+Math.sin(a)*r*0.55;
+      parts.push({x:px,y:py,vx:-Math.cos(a)*220,vy:-Math.sin(a)*220,t:0.5+Math.random()*0.3,c:Math.random()<0.25?'#fff':'#cc33cc',nograv:true});
+    }
+    if(b.transStage<0&&k>=0.18){b.transStage=0;shockRing(b.x,b.y-40,'#7a1bb8',240);screenFlash('#7a1bb8',0.10);camShakeT=Math.max(camShakeT,0.3);camShake=Math.max(camShake,5);beep(70,0.5,0.2,'sawtooth');}
+    if(b.transStage<1&&k>=0.42){b.transStage=1;shockRing(b.x,b.y-40,'#b34dff',210);shockRing(b.x,b.y-40,'#fff',140);camShakeT=Math.max(camShakeT,0.5);camShake=Math.max(camShake,9);beep(95,0.4,0.22,'square');}
+    if(b.transStage<2&&k>=0.68){b.transStage=2;screenFlash('#ffffff',0.14);camShakeT=Math.max(camShakeT,0.5);camShake=Math.max(camShake,12);beep(130,0.3,0.24,'sawtooth');}
+    if(b.transStage<3&&k>=0.86){b.transStage=3;hitstop(0.1,0.2);screenFlash('#ffffff',0.22);camShakeT=Math.max(camShakeT,0.4);camShake=Math.max(camShake,16);shockRing(b.x,b.y-40,'#fff',300);beep(180,0.25,0.26,'square');}
+    if(b.t>0)return;
+    // Fin: estallido blanco y arranque limpio del combate (drop de la canción).
+    b.st='IDLE';b.t=0.35;b.flash=0.25;b.transStage=-1;
+    // Re-cuadra el reloj rítmico en el drop: el combate empieza en el beat 1 de Into The Void.
+    Rhythm.bpm=b.bpm[1]||156;Rhythm.rebase();lastKickSeen=Rhythm.kickCount;
+    shockRing(b.x,b.y-40,'#fff',380);shockRing(b.x,b.y-40,b.color,300);shockRing(b.x,b.y-40,'#b34dff',220);
+    burst(b.x,b.y-40,b.color,34,520);burst(b.x,b.y-40,'#fff',24,420);burst(b.x,b.y-40,'#ffd933',12,340);
+    camShakeT=Math.max(camShakeT,0.6);camShake=Math.max(camShake,15);screenFlash('#fff',0.26);
+    showBanner('FASE 2 · '+b.type,'INTO THE VOID · '+b.bpm[1]+' BPM · PISO CORROSIVO','#ff66ff',1.8);
+    beep(240,0.22,0.24,'square');beep(480,0.18,0.18,'sawtooth');
+    return;
+  }
   if(Math.floor(performance.now()/45)%2===0)burst(b.x+(Math.random()-0.5)*90,b.y-20-Math.random()*70,b.color,1,80);
   if(b.t>0)return;
   b.st='IDLE';b.t=0.45;b.flash=0.2;
   shockRing(b.x,b.y-40,b.color,240);shockRing(b.x,b.y-40,'#fff',160);
   burst(b.x,b.y-40,b.color,24,420);burst(b.x,b.y-40,'#fff',10,300);
-  camShake=Math.max(camShake,7);screenFlash('#fff',0.16);
+  camShakeT=Math.max(camShakeT,0.3);camShake=Math.max(camShake,7);screenFlash('#fff',0.16);
   beep(160,0.25,0.2,'square');
 }
 function killBoss(b){
@@ -295,7 +350,7 @@ function hitNote(key,auto){
 // Barrage rítmico por boss: cada tipo favorece sus modos (personalidad).
 // Resonator=RING/FAN simple · Bass=RAIN pesada · Choir=SPIRAL/FAN · Void=FAN/RAIN · Prime=SPIRAL rápido · Primordial=todo denso.
 function fireKickBarrage(b){
-  if(b.dead||b.st==='STUNNED'||b.st==='AIR'||b.st==='TRANS')return; // en el aire no hay fichas: solo esquiva
+  if(b.dead||b.st==='STUNNED'||b.st==='AIR'||b.st==='TRANS'||b.st==='SHROUD')return; // en el aire/velo no hay fichas: solo esquiva
   const dx=player.x-b.x,dy=(player.y-16)-(b.y-50);
   const baseAng=Math.atan2(dy,dx);
   const hard=S.difficulty==='hard',easy=S.difficulty==='easy';
@@ -401,13 +456,51 @@ function updateBossLeap(b,dt){
   }
   b.leapPlat=null;b.pat='';
 }
+// ---------- VELO DEL VACÍO (jefe final, fase 2) ----------
+// Ventana extra de invulnerabilidad: el jefe se cubre, se acerca y reaparece con un anillo.
+function startShroud(b){
+  clearDelayedFor(b.pid);b.pid=++patId;
+  b.st='SHROUD';b.shroudMax=1.15;b.t=b.shroudMax;b.shroudHit=false;b.shroudFromX=b.x;
+  notes=[];noteCombo=0;
+  showBanner('VELO DEL VACÍO','INVULNERABLE · PREPARA EL DASH','#b34dff',1.15);
+  screenFlash('#b34dff',0.10);
+  shockRing(b.x,b.y-40,'#b34dff',150);burst(b.x,b.y-40,'#b34dff',18,260);
+  beep(620,0.18,0.16,'sine');beep(310,0.25,0.12,'sine');
+}
+function updateShroud(b,dt){
+  b.t-=dt;
+  const k=Math.max(0,Math.min(1,1-b.t/b.shroudMax));
+  if(k<0.75&&player){
+    const dir=Math.sign(player.x-b.x)||1;
+    b.x+=dir*90*dt;clampBoss(b);
+  }
+  if(b.t>0)return;
+  // Reaparece cerca del jugador y castiga con anillo + abanico dirigido.
+  const a=ARENAS[b.idx]||[0,WORLD_W];
+  const side=player&&player.x>b.x?-1:1;
+  b.x=Math.max(a[0]+70,Math.min(a[1]-70,(player?player.x:b.x)+side*180));
+  clampBoss(b);
+  b.y=bossSurfaceUnder({x:b.x,y:b.y,w:b.w});b.surfY=b.y;
+  const sx=b.x,sy=b.y-50,col='#b34dff',g=bossScale(b);
+  const dmg=Math.round(12*g.dmg*(b.phase2?1.2:1));
+  shockRing(sx,sy,col,220);shockRing(sx,sy,'#fff',140);burst(sx,sy,col,24,360);
+  const n=b.phase2?14:10;
+  for(let i=0;i<n;i++){const ang=i/n*Math.PI*2+Math.random()*0.2;
+    eProj.push({x:sx,y:sy,vx:Math.cos(ang)*300,vy:Math.sin(ang)*300,w:12,h:12,life:2.4,dmg,hell:true,col});}
+  const aim=Math.atan2((player?player.y-16:sy)-sy,(player?player.x:sx)-sx);
+  for(let i=0;i<4;i++){const ang=aim+(i-1.5)*0.12;
+    eProj.push({x:sx,y:sy,vx:Math.cos(ang)*360,vy:Math.sin(ang)*360,w:12,h:12,life:2.0,dmg,hell:true,col});}
+  b.st='IDLE';b.t=0.35;b.flash=0.2;
+  camShakeT=Math.max(camShakeT,0.3);camShake=Math.max(camShake,5);
+  beep(180,0.2,0.22,'square');
+}
 const BOSS_PREFS={
   Resonator:[['DOUBLE',.3],['WAVE',.2],['PULSE',.15],['TELEPORT',.08],['SINGLE',.27]],
   BassTitan:[['WAVE',.3],['PULSE',.28],['DOUBLE',.17],['SINGLE',.25]],
   ChoirWarden:[['RICOCHET',.18],['DOUBLE',.22],['WAVE',.16],['TELEPORT',.1],['FAN',.14],['SINGLE',.2]],
   VoidHarvester:[['BLACKHOLE',.14],['DOUBLE',.2],['PULSE',.2],['FAN',.12],['SINGLE',.34]],
   EchoPrime:[['TELEPORT',.24],['DOUBLE',.22],['RICOCHET',.16],['WAVE',.15],['FAN',.13],['SINGLE',.1]],
-  EchoPrimordial:[['TELEPORT',.14],['CLONE',.12],['RICOCHET',.12],['BLACKHOLE',.12],['DOUBLE',.16],['WAVE',.16],['FAN',.1],['SINGLE',.08]]
+  EchoPrimordial:[['RUSH',.10],['TELEPORT',.14],['CLONE',.12],['RICOCHET',.12],['BLACKHOLE',.12],['DOUBLE',.14],['WAVE',.14],['FAN',.08],['SINGLE',.04]]
 };
 function weightedPick(opts,exclude){
   let total=0;for(const [p,w] of opts)if(p!==exclude)total+=w;
@@ -418,9 +511,12 @@ function weightedPick(opts,exclude){
 }
 function choosePattern(b,dx,adx){
   b.atkCount=(b.atkCount||0)+1;
-  // Patrón aéreo: cada 6 ataques (5 en fase 2) sube fuera de alcance y bombardea.
-  const airEvery=b.phase2?9:10;
+  const final=b.type==='EchoPrimordial';
+  // Patrón aéreo: el jefe final sube más a menudo (ventanas de invulnerabilidad).
+  const airEvery=final?(b.phase2?6:8):(b.phase2?9:10);
   if(b.atkCount%airEvery===0){b.pat='AIR';return;}
+  // Velo del Vacío: ventana invulnerable extra del jefe final en fase 2.
+  if(final&&b.phase2&&b.atkCount%8===0){b.pat='SHROUD';return;}
   // Firma única cada N ataques (en fase 2 cae un ataque antes).
   const every=Math.max(2,(b.sigEvery||4)-(b.phase2?1:0));
   if(b.atkCount%every===0){b.pat='SIG';return;}
@@ -446,7 +542,8 @@ function startAirBoss(b){
   clearDelayedFor(b.pid);b.pid=++patId;
   b.st='AIR';b.airT=0;b.airAtk=0;b.airHit=false;b.airLanding=false;
   // Fase aérea larga: set-piece de bullet hell; escala por jefe y fase 2.
-  b.airMax=(4.8+0.55*b.idx)*(b.phase2?1.4:1);
+  // El final usa ventanas algo más cortas pero mucho más frecuentes.
+  b.airMax=b.type==='EchoPrimordial'?(5.2+0.4*b.idx)*(b.phase2?1.25:1.0):(4.8+0.55*b.idx)*(b.phase2?1.4:1);
   b.airEvery=Math.max(0.34,(b.phase2?0.50:0.62)-0.02*b.idx);
   b.airY=GROUND_TOP-300;
   b.airStartY=b.y;
@@ -651,6 +748,16 @@ function fireSignature(b,dx){
       for(let i=0;i<7;i++){const rx=sx-280+i*93;if(Math.abs(rx-player.x)<40)continue;
         eProj.push({x:rx,y:sy-200,vx:0,vy:300,w:13,h:13,life:2.4,dmg:Math.round(11*ph),hell:true,col});}
       cloneSlime(b,-50,-dir);if(b.phase2)cloneSlime(b,50,dir);
+      // Fase 2: dos pozos de vacío avisados bajo el jugador, obligan a moverse.
+      if(b.phase2){
+        const ty=Math.max(GROUND_TOP-250,Math.min(GROUND_TOP-70,player.y-100));
+        later(()=>{
+          if(!alive())return;
+          eProj.push({x:player.x-110,y:ty,hole:true,t:3.0});
+          eProj.push({x:player.x+110,y:ty,hole:true,t:3.0});
+          shockRing(player.x-110,ty,'#33cc66',150);shockRing(player.x+110,ty,'#33cc66',150);
+        },0.45,id);
+      }
       b.spiral+=0.4;shockRing(sx,sy,col,260);burst(sx,sy,col,26,420);
       screenFlash(col,0.18);beep(90,0.5,0.3,'sawtooth');
       break;
@@ -659,6 +766,7 @@ function fireSignature(b,dx){
 }
 function firePattern(b,dx){
   if(b.pat==='AIR'){startAirBoss(b);return;}
+  if(b.pat==='SHROUD'){startShroud(b);return;}
   if(b.pat==='SIG'){fireSignature(b,dx);return;}
   if(b.pat==='LEAP'||b.pat==='SLAM'){startBossLeap(b);return;}
   const dir=Math.sign(dx)||1,g=bossScale(b),ph=(b.phase2?1.25:1)*g.dmg,col=b.color||'#ff2255';

@@ -1,7 +1,47 @@
 // js/render.js — Kenney Pixel Platformer (CC0) + fallback procedural por rects
 'use strict';
 function R(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x-camX),Math.round(y-camY),w,h);}
-const PAT_LABEL={SINGLE:'TIRO',DOUBLE:'DOBLE',WAVE:'ONDA',PULSE:'PULSO',RICOCHET:'REBOTE',BLACKHOLE:'VACÍO',TELEPORT:'SALTO',CLONE:'ECO',FAN:'ABANICO',SIG:'FIRMA',RUSH:'EMBESTIDA',AIR:'AIRE',LEAP:'SALTO',SLAM:'PLASTA'};
+const PAT_LABEL={SINGLE:'TIRO',DOUBLE:'DOBLE',WAVE:'ONDA',PULSE:'PULSO',RICOCHET:'REBOTE',BLACKHOLE:'VACÍO',TELEPORT:'SALTO',CLONE:'ECO',FAN:'ABANICO',SIG:'FIRMA',RUSH:'EMBESTIDA',AIR:'AIRE',LEAP:'SALTO',SLAM:'PLASTA',SHROUD:'VELO'};
+// Overlay de pantalla completa para la cinemática de 6s del jefe final.
+function drawFinalTransition(){
+  const b=bosses.find(x=>!x.dead&&x.st==='TRANS'&&x.transKind==='VOID');
+  if(!b)return;
+  const t=performance.now()/1000;
+  const k=Math.max(0,Math.min(1,1-b.t/(b.transMax||6)));
+  const bx=b.x-camX,by=b.y-45-camY;
+  ctx.save();
+  // Viñeta de vacío: oscurece los bordes y deja un hueco sobre el jefe.
+  const g=ctx.createRadialGradient(bx,by,50,bx,by,Math.max(W,H)*0.82);
+  g.addColorStop(0,'rgba(5,0,12,0)');
+  g.addColorStop(0.42,'rgba(5,0,12,'+(0.20+0.35*k).toFixed(3)+')');
+  g.addColorStop(1,'rgba(2,0,6,'+(0.55+0.35*k).toFixed(3)+')');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // Anillos que se contraen hacia el núcleo.
+  ctx.lineWidth=2;
+  for(let i=0;i<5;i++){
+    const rr=Math.max(6,(1-k)*420-i*42+Math.sin(t*4+i)*7);
+    ctx.globalAlpha=Math.max(0,0.55-k*0.28)*(1-i*0.13);
+    ctx.strokeStyle=i%2?'#ffffff':'#cc33cc';
+    ctx.beginPath();ctx.arc(bx,by,rr,0,7);ctx.stroke();
+  }
+  // Rayos de energía desde el suelo.
+  ctx.globalAlpha=0.10+0.22*k;
+  for(let i=0;i<11;i++){
+    const xx=W/2+(i-5)*66;
+    ctx.strokeStyle=i%2?'#b34dff':'#cc33cc';
+    ctx.beginPath();ctx.moveTo(xx,H);ctx.lineTo(bx,by);ctx.stroke();
+  }
+  // Build blanco antes del drop.
+  if(k>0.78){ctx.globalAlpha=((k-0.78)/0.22)*0.32;ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);}
+  // Texto atmosférico + cuenta atrás.
+  ctx.globalAlpha=Math.min(0.9,k*1.6);ctx.textAlign='center';
+  ctx.font='bold 12px monospace';ctx.fillStyle='#e8d8ff';
+  ctx.shadowColor='#b34dff';ctx.shadowBlur=14;
+  ctx.fillText('I N T O   T H E   V O I D',W/2,H-66);
+  ctx.shadowBlur=0;ctx.font='10px monospace';ctx.fillStyle='#b9a3d8';
+  ctx.fillText('FASE 2 EN '+Math.max(0,Math.ceil(b.t||0))+'s · EL PISO SE CORROE',W/2,H-48);
+  ctx.restore();
+}
 function draw(){
   if(state==='ending'){drawEnding();return;}
   ctx.imageSmoothingEnabled=false;
@@ -105,9 +145,19 @@ function draw(){
     // Transición de fase: anillos, núcleo blanco y levitación ligera.
     if(b.st==='TRANS'){
       const k=1-Math.max(0,b.t)/(b.transMax||1.6),rise=Math.sin(Math.PI*k)*10;
+      const voidTrans=b.transKind==='VOID';
       ctx.save();
-      for(let i=0;i<3;i++){const rr=(bh*0.45+i*16)*(0.55+k*1.1);
-        ctx.strokeStyle=i===1?'#fff':b.color;ctx.globalAlpha=Math.max(0,0.65-k*0.35);ctx.lineWidth=3;
+      if(voidTrans){
+        // Núcleo oscuro que devora la luz, con borde violeta.
+        const core=ctx.createRadialGradient(bx-camX,b.y-bh*0.5-rise-camY,4,bx-camX,b.y-bh*0.5-rise-camY,bh*(0.65+k*0.35));
+        core.addColorStop(0,'rgba(0,0,0,0.95)');
+        core.addColorStop(0.55,'rgba(20,0,35,0.75)');
+        core.addColorStop(1,'rgba(120,20,180,0)');
+        ctx.fillStyle=core;ctx.beginPath();ctx.arc(bx-camX,b.y-bh*0.5-rise-camY,bh*(0.7+k*0.4),0,7);ctx.fill();
+      }
+      const rings=voidTrans?6:3;
+      for(let i=0;i<rings;i++){const rr=(bh*0.45+i*16)*(0.55+k*1.1);
+        ctx.strokeStyle=i===1?'#fff':(voidTrans&&i%2?'#b34dff':b.color);ctx.globalAlpha=Math.max(0,0.65-k*0.35);ctx.lineWidth=3;
         ctx.beginPath();ctx.arc(bx-camX,b.y-bh*0.5-rise-camY,rr,0,7);ctx.stroke();}
       ctx.globalAlpha=0.12+0.18*Math.abs(Math.sin(t*18));ctx.fillStyle='#fff';
       ctx.beginPath();ctx.arc(bx-camX,b.y-bh*0.5-rise-camY,bh*0.55,0,7);ctx.fill();
@@ -147,6 +197,22 @@ function draw(){
       ctx.globalAlpha=0.10;ctx.fillStyle='#33e6ff';ctx.fill();
       ctx.globalAlpha=0.85;ctx.fillStyle='#33e6ff';ctx.font='bold 10px monospace';ctx.textAlign='center';
       ctx.fillText('AIRE · ESQUIVA',bx-camX,top-40-camY);
+      ctx.restore();
+    }
+    // Velo del Vacío: esfera oscura + etiqueta de invulnerabilidad.
+    if(b.st==='SHROUD'){
+      const k=1-Math.max(0,b.t)/(b.shroudMax||1.15);
+      const rr=bh*(0.62+0.16*Math.sin(t*10));
+      ctx.save();
+      const sg=ctx.createRadialGradient(bx-camX,b.y-bh*0.5-camY,2,bx-camX,b.y-bh*0.5-camY,rr);
+      sg.addColorStop(0,'rgba(0,0,0,0.92)');
+      sg.addColorStop(0.6,'rgba(70,10,110,0.72)');
+      sg.addColorStop(1,'rgba(179,77,255,0)');
+      ctx.fillStyle=sg;ctx.beginPath();ctx.arc(bx-camX,b.y-bh*0.5-camY,rr,0,7);ctx.fill();
+      ctx.strokeStyle='#b34dff';ctx.globalAlpha=0.55+0.3*Math.sin(t*14);ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(bx-camX,b.y-bh*0.5-camY,rr,0,7);ctx.stroke();
+      ctx.globalAlpha=0.9;ctx.fillStyle='#e0c8ff';ctx.font='bold 10px monospace';ctx.textAlign='center';
+      ctx.fillText('VELO · INVULNERABLE',bx-camX,top-40-camY);
       ctx.restore();
     }
     if(b.phase2){
@@ -209,7 +275,7 @@ function draw(){
     ctx.save();
     ctx.fillStyle='#000b';ctx.fillRect(hx-4,hy-20,hw+8,44);
     ctx.font='bold 12px monospace';ctx.fillStyle=hb.color;
-    ctx.fillText('BOSS · '+hb.type+(hb.phase2?'  [FASE 2]':'')+(hb.st==='AIR'?'  [AIRE]':hb.st==='TRANS'?'  [TRANSFORMACIÓN]':''),hx,hy-6);
+    ctx.fillText('BOSS · '+hb.type+(hb.phase2?'  [FASE 2]':'')+(hb.st==='AIR'?'  [AIRE]':hb.st==='TRANS'?'  [TRANSFORMACIÓN]':hb.st==='SHROUD'?'  [INVULNERABLE]':''),hx,hy-6);
     ctx.fillStyle='#2a0b12';ctx.fillRect(hx,hy,hw,hh);
     const trail=Math.max(0,Math.min(1,(hb.hpAnim===undefined?hb.hp:hb.hpAnim)/hb.maxhp));
     ctx.fillStyle='#ffffff66';ctx.fillRect(hx,hy,hw*trail,hh);
@@ -359,6 +425,8 @@ function draw(){
   }
   // cartel de zona al cambiar de área
   if(areaT>0&&currentArea>=0){const a=AREAS[currentArea],tx=W/2;ctx.save();ctx.globalAlpha=Math.min(1,areaT);ctx.textAlign='center';ctx.font='bold 18px monospace';ctx.fillStyle='#e8e2ff';ctx.shadowColor='#000';ctx.shadowBlur=10;ctx.fillText(a.name,tx,38);ctx.font='10px monospace';ctx.fillStyle='#9a94b8';ctx.fillText('— ZONA '+(currentArea+1)+' / '+AREAS.length+' —',tx,54);ctx.restore();}
+  // Cinemática de fase 2 del jefe final (6s, sobre el mundo y bajo el banner).
+  drawFinalTransition();
   // banner central animado (lock-in, fase 2, boss caído)
   if(banner){
     const a=Math.min(1,banner.t*3),front=Math.min(1,(banner.max-banner.t)*5),slide=(1-front)*12;

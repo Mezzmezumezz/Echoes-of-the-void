@@ -34,8 +34,24 @@ const BOSS_DEFS=[
   speed:46,keep:220,tele:0.36,idle:1.15,stunRes:3600,sigName:'HORIZONTE',sigEvery:3},
  {type:'EchoPrime',x:11600,hp:1200,bpm:[110,160],color:'#ffe633',contact:18,reward:'boss_teleport',pair:null,spr:'eyeVoid',sw:136,sh:108,hue:0,fps:8,
   speed:120,keep:180,tele:0.24,idle:0.78,stunRes:2800,sigName:'DESTELLO',sigEvery:3},
- {type:'EchoPrimordial',x:14800,hp:1650,bpm:[118,168],color:'#cc33cc',contact:20,reward:'boss_clone',pair:null,spr:'ufo',sw:190,sh:80,hue:280,fps:13,
-  speed:80,keep:200,tele:0.3,idle:0.85,stunRes:4200,sigName:'APOCALIPSIS',sigEvery:3}];
+ {type:'EchoPrimordial',x:14800,hp:2600,bpm:[150,156],color:'#cc33cc',contact:26,reward:'boss_clone',pair:null,spr:'ufo',sw:190,sh:80,hue:280,fps:13,
+  speed:95,keep:200,tele:0.26,idle:0.72,stunRes:5200,sigName:'APOCALIPSIS',sigEvery:3}];
+// Música por boss y por fase. Cualquier boss puede sobrescribir p1/p2 aquí.
+// Por defecto se usa el loop genérico de 95 BPM y el rate lo ajusta al BPM real del combate.
+// El jefe final usa las pistas originales: Blade (150 BPM) y Into The Void (156 BPM).
+// Ejemplo para otro boss: BassTitan:{p1:{src:'assets/music/titan_p1.mp3',bpm:88},p2:{...}}
+const BOSS_MUSIC={
+  EchoPrimordial:{
+    p1:{src:'assets/music/echo_primordial_fase1_blade.mp3',bpm:150,vol:0.55,start:0},
+    // start:1.0 -> el build de Into The Void dura exactamente los 6s de transición;
+    // su drop (7.0s del track) cae justo al empezar el combate de fase 2.
+    p2:{src:'assets/music/echo_primordial_fase2_into_the_void.mp3',bpm:156,vol:0.60,start:1.0,transition:6.0}
+  }
+};
+const BOSS_MUSIC_DEFAULT={
+  p1:{src:'assets/boss_resonator_95bpm.wav',bpm:95,vol:0.50},
+  p2:{src:'assets/boss_resonator_fase2_95bpm.wav',bpm:95,vol:0.52}
+};
 const ARENAS=[[2200,3100],[4300,5300],[6500,7500],[8700,9700],[11100,12100],[14200,15400]];
 // Rutas: escaleras de 50-60px por paso (salto base ~84px), con atajos altos y recovecos.
 const PLATS=[

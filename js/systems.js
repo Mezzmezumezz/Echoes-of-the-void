@@ -43,55 +43,94 @@ const Rhythm={bpm:120,last:0,next:0,count:0,lastKick:0,kickCount:0,kickPat:[1,0,
     if(ms<=D.perfect)return{r:'PERFECT',m:1.5,ms};if(ms<=D.good)return{r:'GOOD',m:1.2,ms};return{r:'MISS',m:0.6,ms};}
 };
 
-// ---------- MUSICA (2 .wav en loop gapless + crossfade a 120 BPM + boss tracks) ----------
-// menu  = pantalla de carga + pausa -> assets/soundtrack_pantalla_de_carga.wav (32s = 16 compases @ 120)
-// main  = exploracion (play sin boss) -> assets/soundtrack_principal.wav (32s = 16 compases @ 120)
-// boss  = cualquier boss -> assets/boss_resonator_95bpm.wav reproducido a bpm/95
-//         (preservesPitch mantiene el tono; el lock-in y la fase 2 reinician para cuadrar el pulso)
-// Crossfade 1.0s (=2 beats @ 120) para no romper la fase.
+// ---------- MUSICA POR BOSS Y POR FASE ----------
+// menu  = pantalla de carga + pausa -> assets/soundtrack_pantalla_de_carga.wav
+// main  = exploracion (play sin boss) -> assets/soundtrack_principal.wav
+// boss  = loop generico de 95 BPM; el playbackRate lo ajusta al BPM real del combate.
+//         fase 1 y fase 2 usan archivos distintos (fase 2 mas oscura/agresiva).
+// final = BOSS_MUSIC.EchoPrimordial: Blade (150) en fase 1, Into The Void (156) en fase 2.
+//         La fase 2 arranca en el segundo 1.0 para que el drop caiga justo al acabar
+//         la transicion de 6s. El rate de estas pistas es 1.0 (ya estan a su BPM).
+const MUSIC_DEFS={
+  menu:{src:'assets/soundtrack_pantalla_de_carga.wav',vol:0.45,loop:true},
+  main:{src:'assets/soundtrack_principal.wav',vol:0.40,loop:true},
+  bossP1:{src:'assets/boss_resonator_95bpm.wav',vol:0.50,loop:true},
+  bossP2:{src:'assets/boss_resonator_fase2_95bpm.wav',vol:0.52,loop:true}
+};
 const Music={
-  menu:null,main:null,bossRes:null,current:null,target:'__none__',unlocked:false,
-  VOL:{menu:0.45,main:0.4,boss:0.5},FADE:1.0,fadeTimer:null,
+  el:{},defs:Object.assign({},MUSIC_DEFS),current:null,target:'__none__',unlocked:false,
+  FADE:0.9,fadeTimer:null,_ready:false,
   init(){
-    if(this.menu||this.main||this.bossRes)return;
+    if(this._ready)return;this._ready=true;
+    // Registrar las pistas personalizadas declaradas en config.js (BOSS_MUSIC).
     try{
-      this.menu=new Audio('assets/soundtrack_pantalla_de_carga.wav');
-      this.menu.loop=true;this.menu.preload='auto';this.menu.volume=0;
-      this.main=new Audio('assets/soundtrack_principal.wav');
-      this.main.loop=true;this.main.preload='auto';this.main.volume=0;
-      this.bossRes=new Audio('assets/boss_resonator_95bpm.wav');
-      this.bossRes.loop=true;this.bossRes.preload='auto';this.bossRes.volume=0;
-    }catch(e){console.warn('[music] no se pudo crear Audio:',e);}
-  },
-  play(name){
-    this.init();
-    if(this.target===name)return;
-    this.target=name;
-    if(!this.unlocked)return;
-    const els={menu:this.menu,main:this.main,boss:this.bossRes};
-    const goals={menu:name==='menu'?this.VOL.menu:0,main:name==='main'?this.VOL.main:0,boss:name==='bossRes'?this.VOL.boss:0};
-    try{
-      for(const k of ['menu','main','boss']){
-        const el=els[k];if(!el)continue;
-        if(goals[k]>0&&el.paused){el.volume=0;const p=el.play();if(p&&p.catch)p.catch(()=>{});}
+      for(const type in BOSS_MUSIC){
+        const m=BOSS_MUSIC[type];
+        for(const ph of ['p1','p2']){
+          const d=m[ph];if(!d)continue;
+          this.defs['boss_'+type+'_'+ph]={src:d.src,vol:d.vol||0.55,loop:true};
+        }
       }
     }catch(e){}
+    for(const k in this.defs)this.ensure(k);
+  },
+  ensure(k){
+    if(this.el[k])return this.el[k];
+    const d=this.defs[k];if(!d)return null;
+    try{
+      const a=new Audio(d.src);
+      a.loop=d.loop!==false;a.preload='auto';a.volume=0;
+      this.el[k]=a;return a;
+    }catch(e){return null;}
+  },
+  setRate(k,rate){
+    const el=this.el[k];if(!el)return;
+    const r=Math.max(0.5,Math.min(1.8,rate||1));
+    try{
+      if(Math.abs(el.playbackRate-r)>0.001){
+        el.preservesPitch=true;el.mozPreservesPitch=true;el.webkitPreservesPitch=true;
+        el.playbackRate=r;
+      }
+    }catch(e){}
+  },
+  play(name,opts){
+    this.init();
+    opts=opts||{};
+    const switching=this.target!==name;
+    if(!switching&&!opts.restart)return;
+    this.target=name;
+    if(!this.unlocked)return;
+    const goals={};
+    for(const k in this.el)goals[k]=0;
+    if(name&&name!=='__none__'){
+      const el=this.ensure(name);if(!el)return;
+      goals[name]=this.defs[name].vol||0.5;
+      if(opts.restart){
+        try{
+          const seek=(opts.seek!==undefined?opts.seek:(this.defs[name].start||0));
+          if(seek>0)el.currentTime=seek;else el.currentTime=0;
+        }catch(e){}
+      }
+      if(el.paused){el.volume=0;const p=el.play();if(p&&p.catch)p.catch(()=>{});}
+    }
     if(this.fadeTimer){clearInterval(this.fadeTimer);this.fadeTimer=null;}
-    const startV={menu:els.menu?els.menu.volume:0,main:els.main?els.main.volume:0,boss:els.boss?els.boss.volume:0};
-    const t0=performance.now(),dur=(name===null?600:this.FADE*1000),M=this;
+    const els=this.el,startV={};
+    for(const k in els)startV[k]=els[k].volume;
+    const t0=performance.now(),dur=Math.max(0.05,(opts.fade!==undefined?opts.fade:this.FADE)*1000),M=this;
     this.fadeTimer=setInterval(()=>{
       const t=Math.min(1,(performance.now()-t0)/dur);
-      const s=t*t*(3-2*t); // smoothstep: transicion suave sin saltos
+      const s=t*t*(3-2*t); // smoothstep
       try{
-        for(const k of ['menu','main','boss']){
+        for(const k in els){
           const el=els[k];if(!el)continue;
-          el.volume=Math.max(0,Math.min(1,startV[k]+(goals[k]-startV[k])*s));
+          const g=goals[k]||0;
+          el.volume=Math.max(0,Math.min(1,startV[k]+(g-startV[k])*s));
         }
         if(t>=1){
           clearInterval(M.fadeTimer);M.fadeTimer=null;M.current=name;
-          for(const k of ['menu','main','boss']){
+          for(const k in els){
             const el=els[k];if(!el)continue;
-            if(goals[k]===0){if(!el.paused)el.pause();}
+            if((goals[k]||0)===0){if(!el.paused)el.pause();}
             else el.volume=goals[k];
           }
         }
@@ -99,18 +138,22 @@ const Music={
     },30);
   },
   unlock(){this.init();this.unlocked=true;this.target='__none__';updateMusic();},
-  // Ajusta el track de boss al BPM del jefe. restart=true re-cuadra el pulso en lock-in/fase 2.
-  syncBoss(bpm,restart){
-    this.init();
-    const el=this.bossRes;if(!el)return;
-    const rate=Math.max(0.5,Math.min(1.8,(bpm||95)/95));
-    try{
-      el.preservesPitch=true;el.mozPreservesPitch=true;el.webkitPreservesPitch=true;
-      if(Math.abs(el.playbackRate-rate)>0.001)el.playbackRate=rate;
-      if(restart)el.currentTime=0;
-    }catch(e){}
-  }
+  // Compatibilidad: las llamadas antiguas solo piden re-evaluar la pista activa.
+  syncBoss(){this.target='__none__';}
 };
+// Resuelve pista + BPM + rate para el boss/fase actual.
+function bossMusicTrack(b){
+  const phase2=!!b.phase2;
+  const custom=BOSS_MUSIC[b.type];
+  const def=custom&&custom[phase2?'p2':'p1'];
+  if(def){
+    return {key:'boss_'+b.type+'_'+(phase2?'p2':'p1'),bpm:def.bpm||b.bpm[phase2?1:0],rate:def.rate||1,
+      start:def.start||0,vol:def.vol||0.55,custom:true};
+  }
+  const d=BOSS_MUSIC_DEFAULT[phase2?'p2':'p1'];
+  const bpm=b.bpm[phase2?1:0]||95;
+  return {key:phase2?'bossP2':'bossP1',bpm,rate:bpm/95,start:0,vol:d.vol,custom:false};
+}
 // Decide que pista debe sonar segun estado + boss activo.
 // Se llama cada frame desde loop() (barato: no hace nada si no hay cambio).
 function updateMusic(){
@@ -119,20 +162,20 @@ function updateMusic(){
   if(typeof skillOpen!=='undefined'&&skillOpen&&typeof state!=='undefined'&&state==='play')return;
   if(typeof Piano!=='undefined'&&Piano.active)return;
   if(typeof tutHowOpen!=='undefined'&&tutHowOpen&&typeof state==='play')return;
-  let want=null;
+  let want='main',track=null;
   if(state==='menu'||state==='pause'||state==='ending')want='menu';
   else if(state==='play'){
     let ab=null;
     try{ab=(typeof activeBoss==='function')?activeBoss():null;}catch(_){}
     if(ab){
-      // Todos los bosses comparten track; playbackRate lo ajusta al BPM del jefe activo.
-      want='bossRes';
-      Music.syncBoss(ab.phase2?ab.bpm[1]:ab.bpm[0],false);
-    }else{
-      want='main';
+      track=bossMusicTrack(ab);
+      want=track.key;
+      Music.setRate(want,track.rate);
     }
   }
-  Music.play(want);
+  if(Music.target!==want){
+    Music.play(want,{restart:!!track,fade:track?(track.custom?0.6:0.9):0.7,seek:track?track.start:0});
+  }
 }
 // ---------- TIME SCALE (hitstop corto para impactos grandes) ----------
 let timeScale=1,hitstopT=0,hitstopScale=1;
